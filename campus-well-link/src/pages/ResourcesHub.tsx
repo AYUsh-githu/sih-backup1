@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ interface Resource {
 }
 
 export const ResourcesHub: React.FC = () => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
@@ -88,11 +90,11 @@ export const ResourcesHub: React.FC = () => {
   const recommendedResources: Resource[] = [
     {
       id: '1',
-      title: 'Quick Anxiety Relief Techniques',
-      description: 'Simple breathing exercises for immediate anxiety relief',
-      type: 'video',
+      title: 'Understanding Anxiety: A Complete Guide',
+      description: 'Comprehensive guide to understanding and managing anxiety',
+      type: 'article',
       category: 'anxiety',
-      duration: '5 min',
+      duration: '15 min read',
       rating: 4.9,
       featured: true,
       popular: true
@@ -142,6 +144,12 @@ export const ResourcesHub: React.FC = () => {
       popular: true
     }
   ];
+
+  const handleResourceClick = (resourceId: string) => {
+    if (resourceId === '1') {
+      navigate('/anxiety-guide');
+    }
+  };
 
   const allResources: Resource[] = [
     ...recommendedResources,
@@ -320,9 +328,12 @@ export const ResourcesHub: React.FC = () => {
                             <span className="text-sm font-medium">{resource.rating}</span>
                           </div>
                         </div>
-                        <Button className="w-full btn-glass group-hover:bg-white/30">
+                        <Button 
+                          className="w-full btn-glass group-hover:bg-white/30"
+                          onClick={() => handleResourceClick(resource.id)}
+                        >
                           <ExternalLink className="w-4 h-4 mr-2" />
-                          Start Now
+                          {resource.id === '1' ? 'Access Resource' : 'Start Now'}
                         </Button>
                       </CardContent>
                     </Card>
@@ -374,8 +385,12 @@ export const ResourcesHub: React.FC = () => {
                         <span className="text-xs">{resource.rating}</span>
                       </div>
                     </div>
-                    <Button size="sm" className="w-full btn-glass">
-                      Access
+                    <Button 
+                      size="sm" 
+                      className="w-full btn-glass"
+                      onClick={() => handleResourceClick(resource.id)}
+                    >
+                      {resource.id === '1' ? 'Access Resource' : 'Access'}
                     </Button>
                   </CardContent>
                 </Card>

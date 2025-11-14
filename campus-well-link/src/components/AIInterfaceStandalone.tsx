@@ -13,9 +13,15 @@ import {
   TrendingUp,
   MessageCircle,
   Zap,
-  Target
+  Target,
+  Maximize2,
+  Minimize2,
+  Mic,
+  MicOff
 } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { motion, AnimatePresence } from 'framer-motion';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
 const mockData = [
   { name: 'Mon', wellness: 65, anxiety: 30, mood: 70 },
@@ -28,9 +34,24 @@ const mockData = [
 ];
 
 const aiInsights = [
-  { icon: TrendingUp, title: "Mood Trending Up", description: "Your mood has improved 25% this week", color: "text-green-500" },
-  { icon: Target, title: "Stress Reduction", description: "Meditation sessions showing positive impact", color: "text-blue-500" },
-  { icon: Activity, title: "Sleep Pattern", description: "Consider earlier bedtime for better wellness", color: "text-purple-500" }
+  { 
+    icon: TrendingUp, 
+    title: "Mood Trending Up", 
+    description: "Your mood has improved 25% this week",
+    color: "text-green-500"
+  },
+  { 
+    icon: Target, 
+    title: "Stress Reduction", 
+    description: "Meditation sessions showing positive impact",
+    color: "text-blue-500"
+  },
+  { 
+    icon: Activity, 
+    title: "Sleep Pattern", 
+    description: "Consider earlier bedtime for better wellness",
+    color: "text-purple-500"
+  }
 ];
 
 export const AIInterfaceStandalone: React.FC = () => {
@@ -40,6 +61,9 @@ export const AIInterfaceStandalone: React.FC = () => {
     { role: 'ai', content: 'Hello! I\'m your AI wellness companion. How can I help you today?' }
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
 
   const handleSendMessage = async () => {
     if (!message.trim()) return;
@@ -49,73 +73,186 @@ export const AIInterfaceStandalone: React.FC = () => {
     setMessage('');
     setIsTyping(true);
 
-    try {
-      const response = await fetch('http://127.0.0.1:5000/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
-      });
-      const data: { reply: string } = await response.json();
-
-      const aiResponse = { role: 'ai', content: data.reply };
+    // Simulate AI response
+    setTimeout(() => {
+      const aiResponse = {
+        role: 'ai',
+        content: 'I understand you\'re looking for wellness support. Based on your recent activity, I recommend trying our guided meditation or speaking with a counselor.'
+      };
       setChatMessages(prev => [...prev, aiResponse]);
-    } catch (err) {
-      console.error(err);
-      const aiResponse = { role: 'ai', content: 'Sorry, something went wrong.' };
-      setChatMessages(prev => [...prev, aiResponse]);
-    } finally {
       setIsTyping(false);
+    }, 1500);
+  };
+
+  // Initialize speech recognition
+  React.useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      const recognitionInstance = new SpeechRecognition();
+      recognitionInstance.continuous = false;
+      recognitionInstance.interimResults = false;
+      recognitionInstance.lang = 'en-US';
+
+      recognitionInstance.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setMessage(transcript);
+        setIsListening(false);
+      };
+
+      recognitionInstance.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+
+      recognitionInstance.onend = () => {
+        setIsListening(false);
+      };
+
+      setRecognition(recognitionInstance);
+    }
+  }, []);
+
+  const handleVoiceInput = () => {
+    if (!recognition) {
+      alert('Speech recognition is not supported in your browser.');
+      return;
+    }
+
+    if (isListening) {
+      recognition.stop();
+      setIsListening(false);
+    } else {
+      recognition.start();
+      setIsListening(true);
     }
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Chat Interface */}
-      <div className="lg:col-span-2 space-y-4">
-        <Card className="glass-card border-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageCircle className="w-5 h-5 text-wellness-calm" />
-              Chat with AI
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="h-64 overflow-y-auto space-y-3 p-4 bg-muted/30 rounded-xl">
-              {chatMessages.map((msg, index) => (
-                <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] p-3 rounded-2xl ${
-                    msg.role === 'user' ? 'bg-gradient-primary text-white' : 'bg-card border border-border'
-                  }`}>
-                    <p className="text-sm">{msg.content}</p>
-                  </div>
-                </div>
-              ))}
-              {isTyping && (
-                <div className="flex justify-start">
-                  <div className="bg-card border border-border p-3 rounded-2xl">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-wellness-calm rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-wellness-calm rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                      <div className="w-2 h-2 bg-wellness-calm rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+    <>
+      {/* Overlay when expanded */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={() => setIsExpanded(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Chat Interface */}
+        <motion.div 
+          className={`lg:col-span-2 space-y-4 ${isExpanded ? 'fixed inset-4 z-50 lg:inset-8' : ''}`}
+          layout
+          transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        >
+          <Card className={`glass-card border-0 ${isExpanded ? 'h-full flex flex-col' : ''}`}>
+            <CardHeader className="flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-wellness-calm" />
+                  Chat with AI
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="h-8 w-8"
+                >
+                  {isExpanded ? (
+                    <Minimize2 className="w-4 h-4" />
+                  ) : (
+                    <Maximize2 className="w-4 h-4" />
+                  )}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className={`space-y-4 ${isExpanded ? 'flex-1 flex flex-col' : ''}`}>
+              <div className={`${isExpanded ? 'flex-1' : 'h-64'} overflow-y-auto space-y-3 p-4 bg-muted/30 rounded-xl`}>
+                {chatMessages.map((msg, index) => (
+                  <div
+                    key={index}
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[80%] p-3 rounded-2xl ${
+                        msg.role === 'user'
+                          ? 'bg-gradient-primary text-white'
+                          : 'bg-card border border-border'
+                      }`}
+                    >
+                      <p className="text-sm">{msg.content}</p>
                     </div>
                   </div>
+                ))}
+                {isTyping && (
+                  <div className="flex justify-start">
+                    <div className="bg-card border border-border p-3 rounded-2xl">
+                      <div className="flex gap-1">
+                        <div className="w-2 h-2 bg-wellness-calm rounded-full animate-bounce" />
+                        <div className="w-2 h-2 bg-wellness-calm rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                        <div className="w-2 h-2 bg-wellness-calm rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2 flex-shrink-0">
+                {isListening && (
+                  <div className="flex items-center justify-center gap-2 text-sm text-wellness-calm animate-pulse">
+                    <div className="flex gap-1">
+                      <div className="w-1 h-4 bg-wellness-calm rounded-full animate-[pulse_0.8s_ease-in-out_infinite]" />
+                      <div className="w-1 h-6 bg-wellness-calm rounded-full animate-[pulse_0.8s_ease-in-out_infinite_0.1s]" />
+                      <div className="w-1 h-5 bg-wellness-calm rounded-full animate-[pulse_0.8s_ease-in-out_infinite_0.2s]" />
+                      <div className="w-1 h-7 bg-wellness-calm rounded-full animate-[pulse_0.8s_ease-in-out_infinite_0.3s]" />
+                      <div className="w-1 h-4 bg-wellness-calm rounded-full animate-[pulse_0.8s_ease-in-out_infinite_0.4s]" />
+                    </div>
+                    <span className="font-medium">Listening...</span>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Input
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Ask about your wellness..."
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    className="flex-1"
+                  />
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          onClick={handleVoiceInput} 
+                          variant={isListening ? "default" : "outline"}
+                          className={`px-4 ${isListening ? 'animate-pulse bg-wellness-calm hover:bg-wellness-calm/90' : ''}`}
+                        >
+                          {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{isListening ? 'Stop recording' : 'Start voice input'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button onClick={handleSendMessage} className="px-6">
+                          <Send className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Send message</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Ask about your wellness..."
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                className="flex-1"
-              />
-              <Button onClick={handleSendMessage} className="px-6">
-                <Send className="w-4 h-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
 
         {/* AI Insights */}
         <Card className="glass-card border-0">
@@ -139,10 +276,10 @@ export const AIInterfaceStandalone: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-      </div>
+        </motion.div>
 
-      {/* Analytics Dashboard */}
-      <div className="space-y-4">
+        {/* Analytics Dashboard */}
+        <div className={`space-y-4 ${isExpanded ? 'hidden' : ''}`}>
         <Card className="glass-card border-0">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -157,14 +294,20 @@ export const AIInterfaceStandalone: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
                   <YAxis stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip 
+                  <RechartsTooltip 
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
                       borderRadius: '12px'
                     }}
                   />
-                  <Area type="monotone" dataKey="wellness" stroke="hsl(var(--wellness-calm))" fill="hsl(var(--wellness-calm) / 0.2)" strokeWidth={2} />
+                  <Area
+                    type="monotone"
+                    dataKey="wellness"
+                    stroke="hsl(var(--wellness-calm))"
+                    fill="hsl(var(--wellness-calm) / 0.2)"
+                    strokeWidth={2}
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -179,11 +322,27 @@ export const AIInterfaceStandalone: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/mood-checkin')}>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => navigate('/mood-checkin')}
+            >
               <Bot className="w-4 h-4 mr-2" />
               Mood Check-in
             </Button>
-            <Button variant="outline" className="w-full justify-start">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => navigate('/stress-assessment')}
+            >
+              <Brain className="w-4 h-4 mr-2" />
+              Stress Assessment
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => navigate('/wellness-plan')}
+            >
               <Activity className="w-4 h-4 mr-2" />
               Wellness Plan
             </Button>
@@ -206,7 +365,8 @@ export const AIInterfaceStandalone: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
-    </div>
+    </>
   );
 };

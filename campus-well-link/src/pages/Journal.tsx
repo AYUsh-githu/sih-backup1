@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Bold, Italic, List, Save, Calendar, Eye } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { RichTextEditor } from '@/components/RichTextEditor';
+import { Save, Calendar, Eye } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface JournalEntry {
   id: string;
@@ -15,68 +15,57 @@ interface JournalEntry {
 }
 
 export const Journal: React.FC = () => {
+  const { toast } = useToast();
   const [currentEntry, setCurrentEntry] = useState('');
   const [selectedEntry, setSelectedEntry] = useState<JournalEntry | null>(null);
-  const [isBold, setIsBold] = useState(false);
-  const [isItalic, setIsItalic] = useState(false);
 
-  // Mock previous entries
-  const [entries] = useState<JournalEntry[]>([
+  // Mock previous entries - now with HTML content
+  const [entries, setEntries] = useState<JournalEntry[]>([
     {
       id: '1',
       date: '2024-01-15',
       title: 'Reflection on Study Session',
-      content: 'Today was a productive day. I managed to complete my assignments and felt more organized than usual...',
+      content: '<p>Today was a <strong>productive day</strong>. I managed to complete my assignments and felt more <em>organized</em> than usual...</p>',
       preview: 'Today was a productive day. I managed to complete...'
     },
     {
       id: '2',
       date: '2024-01-12',
       title: 'Feeling Grateful',
-      content: 'I wanted to write about the things I am grateful for today. My friends, family, and the support I receive...',
+      content: '<p>I wanted to write about the things I am <strong>grateful</strong> for today:</p><ul><li>My friends</li><li>Family</li><li>The support I receive</li></ul>',
       preview: 'I wanted to write about the things I am grateful...'
     },
     {
       id: '3',
       date: '2024-01-10',
       title: 'Managing Stress',
-      content: 'Had a challenging week with exams coming up. Using breathing exercises helped me stay calm...',
+      content: '<p>Had a <em>challenging week</em> with exams coming up. Using <strong>breathing exercises</strong> helped me stay calm...</p>',
       preview: 'Had a challenging week with exams coming up...'
     }
   ]);
 
-  const handleFormatting = (format: 'bold' | 'italic' | 'list') => {
-    const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selectedText = currentEntry.substring(start, end);
-
-    let formattedText = '';
-    switch (format) {
-      case 'bold':
-        formattedText = `**${selectedText}**`;
-        setIsBold(!isBold);
-        break;
-      case 'italic':
-        formattedText = `*${selectedText}*`;
-        setIsItalic(!isItalic);
-        break;
-      case 'list':
-        formattedText = `\n• ${selectedText}`;
-        break;
-    }
-
-    const newText = currentEntry.substring(0, start) + formattedText + currentEntry.substring(end);
-    setCurrentEntry(newText);
-  };
-
   const handleSaveEntry = () => {
-    if (currentEntry.trim()) {
-      // Here you would typically save to backend
-      console.log('Saving entry:', currentEntry);
+    if (currentEntry.trim() && currentEntry !== '<p></p>') {
+      // Create a temporary div to extract text for preview
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = currentEntry;
+      const plainText = tempDiv.textContent || tempDiv.innerText || '';
+      
+      const newEntry: JournalEntry = {
+        id: Date.now().toString(),
+        date: new Date().toISOString().split('T')[0],
+        title: `Entry - ${new Date().toLocaleDateString()}`,
+        content: currentEntry,
+        preview: plainText.substring(0, 50) + (plainText.length > 50 ? '...' : '')
+      };
+      
+      setEntries([newEntry, ...entries]);
       setCurrentEntry('');
+      
+      toast({
+        title: "Entry Saved",
+        description: "Your journal entry has been saved successfully.",
+      });
     }
   };
 
@@ -113,42 +102,13 @@ export const Journal: React.FC = () => {
                   <Calendar className="w-5 h-5" />
                   New Journal Entry
                 </CardTitle>
-                
-                {/* Formatting Toolbar */}
-                <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleFormatting('bold')}
-                    className={cn("h-8 w-8 p-0", isBold && "bg-primary text-primary-foreground")}
-                  >
-                    <Bold className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleFormatting('italic')}
-                    className={cn("h-8 w-8 p-0", isItalic && "bg-primary text-primary-foreground")}
-                  >
-                    <Italic className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleFormatting('list')}
-                    className="h-8 w-8 p-0"
-                  >
-                    <List className="w-4 h-4" />
-                  </Button>
-                </div>
               </CardHeader>
               
               <CardContent className="space-y-4">
-                <Textarea
+                <RichTextEditor
+                  content={currentEntry}
+                  onChange={setCurrentEntry}
                   placeholder="What's on your mind today? Write about your thoughts, feelings, experiences, or anything you'd like to reflect on..."
-                  value={currentEntry}
-                  onChange={(e) => setCurrentEntry(e.target.value)}
-                  className="min-h-[300px] text-base leading-relaxed resize-none"
                 />
                 
                 <div className="flex justify-end">
@@ -174,13 +134,10 @@ export const Journal: React.FC = () => {
                 </CardHeader>
                 
                 <CardContent>
-                  <div className="prose prose-sm max-w-none text-foreground">
-                    {selectedEntry.content.split('\n').map((paragraph, index) => (
-                      <p key={index} className="mb-3 leading-relaxed">
-                        {paragraph}
-                      </p>
-                    ))}
-                  </div>
+                  <div 
+                    className="prose prose-sm max-w-none text-foreground"
+                    dangerouslySetInnerHTML={{ __html: selectedEntry.content }}
+                  />
                 </CardContent>
               </Card>
             )}

@@ -20,6 +20,7 @@ import {
   Shield
 } from 'lucide-react';
 import { ShimmerCard } from '@/components/LoadingSpinner';
+import { useNavigate } from 'react-router-dom';
 
 interface Resource {
   id: string;
@@ -34,6 +35,7 @@ interface Resource {
 }
 
 export const Resources: React.FC = () => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -142,6 +144,16 @@ export const Resources: React.FC = () => {
 
   const featuredResources = resources.filter(resource => resource.featured);
 
+  const handleResourceClick = (resourceId: string) => {
+    if (resourceId === '1') {
+      navigate('/anxiety-guide');
+    } else if (resourceId === '2') {
+      navigate('/mindfulness-meditation');
+    } else if (resourceId === '4') {
+      navigate('/depression-workbook');
+    }
+  };
+
   if (isLoading) {
     return (
       <DashboardLayout userType="student">
@@ -220,7 +232,10 @@ export const Resources: React.FC = () => {
                           <span className="text-sm font-medium">{resource.rating}</span>
                         </div>
                       </div>
-                      <Button className="w-full btn-glass group-hover:bg-white/30">
+                      <Button 
+                        className="w-full btn-glass group-hover:bg-white/30"
+                        onClick={() => handleResourceClick(resource.id)}
+                      >
                         <ExternalLink className="w-4 h-4 mr-2" />
                         Access Resource
                       </Button>
@@ -284,7 +299,11 @@ export const Resources: React.FC = () => {
                             <span className="text-xs">{resource.rating}</span>
                           </div>
                         </div>
-                        <Button size="sm" className="w-full btn-glass">
+                        <Button 
+                          size="sm" 
+                          className="w-full btn-glass"
+                          onClick={() => handleResourceClick(resource.id)}
+                        >
                           View
                         </Button>
                       </CardContent>

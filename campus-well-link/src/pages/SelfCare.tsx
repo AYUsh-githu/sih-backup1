@@ -21,6 +21,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { ShimmerCard } from '@/components/LoadingSpinner';
+import { MovementExercises } from '@/components/MovementExercises';
 
 interface Activity {
   id: string;
@@ -158,6 +159,11 @@ export const SelfCare: React.FC = () => {
   const filteredActivities = selectedCategory === 'all' 
     ? activities 
     : activities.filter(activity => activity.category === selectedCategory);
+
+  // Show Movement Exercises component when movement category is selected
+  if (selectedCategory === 'movement') {
+    return <MovementExercises />;
+  }
 
   const startActivity = (activity: Activity) => {
     setTimer({

@@ -1,14 +1,9 @@
 import type { Config } from "tailwindcss";
 
-// Full Tailwind config with animations, keyframes, and custom colors
-const config: Config = {
+export default {
   darkMode: ["class"],
-  content: [
-    "./pages/**/*.{ts,tsx}",
-    "./components/**/*.{ts,tsx}",
-    "./app/**/*.{ts,tsx}",
-    "./src/**/*.{ts,tsx}",
-  ],
+  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  prefix: "",
   theme: {
     container: {
       center: true,
@@ -19,7 +14,7 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -55,6 +50,7 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Wellness Color Palette
         wellness: {
           calm: "hsl(var(--wellness-calm))",
           serene: "hsl(var(--wellness-serene))",
@@ -69,19 +65,19 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       backgroundImage: {
-        "gradient-primary": "var(--gradient-primary)",
-        "gradient-secondary": "var(--gradient-secondary)",
-        "gradient-warm": "var(--gradient-warm)",
-        "gradient-glass": "var(--gradient-glass)",
-        "gradient-shimmer": "var(--gradient-shimmer)",
+        'gradient-primary': 'var(--gradient-primary)',
+        'gradient-secondary': 'var(--gradient-secondary)',
+        'gradient-warm': 'var(--gradient-warm)',
+        'gradient-glass': 'var(--gradient-glass)',
+        'gradient-shimmer': 'var(--gradient-shimmer)',
       },
       backdropBlur: {
-        xs: "2px",
+        xs: '2px',
       },
       boxShadow: {
-        glass: "0 8px 32px 0 rgba(31, 38, 135, 0.37)",
-        "glass-inset": "inset 0 -1px 0 0 rgba(255, 255, 255, 0.05)",
-        "3xl": "0 35px 60px -12px rgba(0, 0, 0, 0.25)",
+        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+        'glass-inset': 'inset 0 -1px 0 0 rgba(255, 255, 255, 0.05)',
+        '3xl': '0 35px 60px -12px rgba(0, 0, 0, 0.25)',
       },
       keyframes: {
         "accordion-down": {
@@ -116,11 +112,11 @@ const config: Config = {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.8" },
         },
-        shimmer: {
+        "shimmer": {
           "0%": { transform: "translateX(-100%)" },
           "100%": { transform: "translateX(100%)" },
         },
-        float: {
+        "float": {
           "0%, 100%": { transform: "translateY(0) rotate(0deg)" },
           "33%": { transform: "translateY(-20px) rotate(120deg)" },
           "66%": { transform: "translateY(10px) rotate(240deg)" },
@@ -140,7 +136,7 @@ const config: Config = {
         "rotate-gentle": {
           "0%": { transform: "rotate(0deg)" },
           "100%": { transform: "rotate(360deg)" },
-        },
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -151,21 +147,18 @@ const config: Config = {
         "slide-in-left": "slide-in-left 0.5s ease-out",
         "bounce-gentle": "bounce-gentle 2s ease-in-out infinite",
         "pulse-gentle": "pulse-gentle 2s ease-in-out infinite",
-        shimmer: "shimmer 2s linear infinite",
-        float: "float 6s ease-in-out infinite",
+        "shimmer": "shimmer 2s linear infinite",
+        "float": "float 6s ease-in-out infinite",
         "gradient-shift": "gradient-shift 3s ease infinite",
         "text-reveal": "text-reveal 0.8s ease-out",
         "modal-in": "modal-in 0.3s ease-out",
         "rotate-gentle": "rotate-gentle 2s linear infinite",
       },
       transitionTimingFunction: {
-        gentle: "cubic-bezier(0.4, 0, 0.2, 1)",
-        "bounce-gentle": "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
+        'gentle': 'cubic-bezier(0.4, 0, 0.2, 1)',
+        'bounce-gentle': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
       },
     },
   },
-  // @ts-ignore
   plugins: [require("tailwindcss-animate")],
-};
-
-export default config;
+} satisfies Config;

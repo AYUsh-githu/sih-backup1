@@ -68,7 +68,7 @@ export const LandingPage: React.FC = () => {
         <div className="text-center mb-16">
           <div className="text-reveal mb-8">
             <h1 className="text-6xl md:text-8xl font-bold bg-gradient-to-r from-wellness-calm via-wellness-serene to-wellness-peaceful bg-clip-text text-transparent mb-6 text-reveal-item">
-              MindCare
+              Haven
             </h1>
           </div>
           
@@ -142,7 +142,7 @@ export const LandingPage: React.FC = () => {
 
         {/* Footer */}
         <footer className="mt-16 text-center text-muted-foreground">
-          <p>&copy; 2024 MindCare. Your mental health matters.</p>
+          <p>&copy; 2024 Haven. Your mental health matters.</p>
         </footer>
       </div>
     </div>

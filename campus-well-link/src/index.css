@@ -348,3 +348,46 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Rich Text Editor Styles */
+.rich-text-editor .ProseMirror {
+  @apply min-h-[300px] p-4 focus:outline-none;
+}
+
+.rich-text-editor .ProseMirror p {
+  @apply mb-3 leading-relaxed;
+}
+
+.rich-text-editor .ProseMirror strong {
+  @apply font-bold;
+}
+
+.rich-text-editor .ProseMirror em {
+  @apply italic;
+}
+
+.rich-text-editor .ProseMirror u {
+  @apply underline;
+}
+
+.rich-text-editor .ProseMirror ul,
+.rich-text-editor .ProseMirror ol {
+  @apply pl-6 mb-3;
+}
+
+.rich-text-editor .ProseMirror ul {
+  @apply list-disc;
+}
+
+.rich-text-editor .ProseMirror ol {
+  @apply list-decimal;
+}
+
+.rich-text-editor .ProseMirror li {
+  @apply mb-1;
+}
+
+.rich-text-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply text-muted-foreground pointer-events-none float-left h-0;
+}

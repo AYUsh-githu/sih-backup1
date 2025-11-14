@@ -12,7 +12,6 @@ import { AdminDashboard } from "./pages/AdminDashboard";
 import { AIAssistant } from "./pages/AIAssistant";
 import { Resources } from "./pages/Resources";
 import { ResourcesHub } from "./pages/ResourcesHub";
-import { SelfCare } from "./pages/SelfCare";
 import { SelfCareHub } from "./pages/SelfCareHub";
 import { BookSession } from "./pages/BookSession";
 import { ScreeningTests } from "./pages/ScreeningTests";
@@ -22,6 +21,10 @@ import { Alerts } from "./pages/Alerts";
 import { MoodCheckin } from "./pages/MoodCheckin";
 import { Journal } from "./pages/Journal";
 import { StressAssessment } from "./pages/StressAssessment";
+import { WellnessPlan } from "./pages/WellnessPlan";
+import { AnxietyGuide } from "./pages/AnxietyGuide";
+import { DepressionWorkbook } from "./pages/DepressionWorkbook";
+import { MindfulnessMeditation } from "./pages/MindfulnessMeditation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,7 +45,6 @@ const App = () => (
             <Route path="/student-dashboard/resources" element={<Resources />} />
             <Route path="/student-dashboard/resources-hub" element={<ResourcesHub />} />
             <Route path="/self-care-hub" element={<SelfCareHub />} />
-            <Route path="/self-care" element={<SelfCare />} />
             <Route path="/student-dashboard/booking" element={<BookSession />} />
             <Route path="/admin-dashboard" element={<AdminDashboard />} />
             <Route path="/admin-dashboard/resources" element={<Resources />} />
@@ -53,6 +55,10 @@ const App = () => (
             <Route path="/mood-checkin" element={<MoodCheckin />} />
             <Route path="/journal" element={<Journal />} />
             <Route path="/stress-assessment" element={<StressAssessment />} />
+            <Route path="/wellness-plan" element={<WellnessPlan />} />
+        <Route path="/anxiety-guide" element={<AnxietyGuide />} />
+        <Route path="/depression-workbook" element={<DepressionWorkbook />} />
+        <Route path="/mindfulness-meditation" element={<MindfulnessMeditation />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
