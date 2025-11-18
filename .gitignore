@@ -1,0 +1,4 @@
+venv
+backend/llama_env/
+node_modules/
+*.log
