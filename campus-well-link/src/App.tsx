@@ -15,6 +15,9 @@ import { ResourcesHub } from "./pages/ResourcesHub";
 import { SelfCareHub } from "./pages/SelfCareHub";
 import { BookSession } from "./pages/BookSession";
 import { ScreeningTests } from "./pages/ScreeningTests";
+import { CreateScreeningTest } from "./pages/CreateScreeningTest";
+import { AssessmentOverview } from "./pages/AssessmentOverview";
+import { AssessmentAnalytics } from "./pages/AssessmentAnalytics";
 import { Results } from "./pages/Results";
 import { StudentRequests } from "./pages/StudentRequests";
 import { Alerts } from "./pages/Alerts";
@@ -25,6 +28,9 @@ import { WellnessPlan } from "./pages/WellnessPlan";
 import { AnxietyGuide } from "./pages/AnxietyGuide";
 import { DepressionWorkbook } from "./pages/DepressionWorkbook";
 import { MindfulnessMeditation } from "./pages/MindfulnessMeditation";
+import { ResilienceArticle } from "./pages/ResilienceArticle";
+import { SleepHealth } from "./pages/SleepHealth";
+import { StressManagement } from "./pages/StressManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +55,9 @@ const App = () => (
             <Route path="/admin-dashboard" element={<AdminDashboard />} />
             <Route path="/admin-dashboard/resources" element={<Resources />} />
             <Route path="/admin-dashboard/screening" element={<ScreeningTests />} />
+            <Route path="/admin-dashboard/screening/create" element={<CreateScreeningTest />} />
+            <Route path="/admin-dashboard/screening/overview" element={<AssessmentOverview />} />
+            <Route path="/admin-dashboard/screening/analytics" element={<AssessmentAnalytics />} />
             <Route path="/admin-dashboard/results" element={<Results />} />
             <Route path="/admin-dashboard/requests" element={<StudentRequests />} />
             <Route path="/admin-dashboard/alerts" element={<Alerts />} />
@@ -56,9 +65,12 @@ const App = () => (
             <Route path="/journal" element={<Journal />} />
             <Route path="/stress-assessment" element={<StressAssessment />} />
             <Route path="/wellness-plan" element={<WellnessPlan />} />
-        <Route path="/anxiety-guide" element={<AnxietyGuide />} />
-        <Route path="/depression-workbook" element={<DepressionWorkbook />} />
-        <Route path="/mindfulness-meditation" element={<MindfulnessMeditation />} />
+            <Route path="/anxiety-guide" element={<AnxietyGuide />} />
+            <Route path="/depression-workbook" element={<DepressionWorkbook />} />
+            <Route path="/mindfulness-meditation" element={<MindfulnessMeditation />} />
+            <Route path="/resilience-article" element={<ResilienceArticle />} />
+            <Route path="/sleep-health" element={<SleepHealth />} />
+            <Route path="/stress-management" element={<StressManagement />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

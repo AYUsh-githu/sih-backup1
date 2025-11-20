@@ -5,11 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  BookOpen, 
-  Video, 
-  Headphones, 
-  FileText, 
+import {
+  BookOpen,
+  Video,
+  Headphones,
+  FileText,
   Search,
   Clock,
   Star,
@@ -137,7 +137,7 @@ export const Resources: React.FC = () => {
 
   const filteredResources = resources.filter(resource => {
     const matchesSearch = resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         resource.description.toLowerCase().includes(searchTerm.toLowerCase());
+      resource.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || resource.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -149,8 +149,14 @@ export const Resources: React.FC = () => {
       navigate('/anxiety-guide');
     } else if (resourceId === '2') {
       navigate('/mindfulness-meditation');
+    } else if (resourceId === '3') {
+      navigate('/stress-management');
     } else if (resourceId === '4') {
       navigate('/depression-workbook');
+    } else if (resourceId === '5') {
+      navigate('/resilience-article');
+    } else if (resourceId === '6') {
+      navigate('/sleep-health');
     }
   };
 
@@ -180,7 +186,7 @@ export const Resources: React.FC = () => {
           <p className="text-xl text-muted-foreground mb-6">
             Discover tools, articles, and guides to support your mental wellness journey
           </p>
-          
+
           {/* Search */}
           <div className="max-w-md mx-auto relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -232,7 +238,7 @@ export const Resources: React.FC = () => {
                           <span className="text-sm font-medium">{resource.rating}</span>
                         </div>
                       </div>
-                      <Button 
+                      <Button
                         className="w-full btn-glass group-hover:bg-white/30"
                         onClick={() => handleResourceClick(resource.id)}
                       >
@@ -299,8 +305,8 @@ export const Resources: React.FC = () => {
                             <span className="text-xs">{resource.rating}</span>
                           </div>
                         </div>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           className="w-full btn-glass"
                           onClick={() => handleResourceClick(resource.id)}
                         >
@@ -311,7 +317,7 @@ export const Resources: React.FC = () => {
                   );
                 })}
               </div>
-              
+
               {filteredResources.length === 0 && (
                 <div className="text-center py-12">
                   <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />

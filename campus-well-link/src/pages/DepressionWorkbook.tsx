@@ -3,6 +3,7 @@ import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -35,8 +36,7 @@ const workbookPages: WorkbookPage[] = [
   { id: 1, title: 'Welcome to Your Journey', type: 'intro', content: 'This workbook is your personal companion through understanding and managing depression. Take your time with each page, and remember: healing is not linear.', icon: Heart },
   { id: 2, title: 'Understanding Depression', type: 'tips', content: 'Learn about what depression is and how it affects you.', icon: Brain },
   { id: 3, title: 'My Current Feelings', type: 'journal', content: 'Take a moment to write about how you\'re feeling today. There\'s no right or wrong answer.', icon: Sparkles },
-  // The assessment page will now show PHQ-9 and PSS-10 (user picks which)
-  { id: 4, title: 'Assessments', type: 'assessment', content: 'Complete the assessments to get a quick measure of depression and perceived stress.', icon: Sun },
+  { id: 4, title: 'Mood Check-In', type: 'assessment', content: 'Rate how you\'ve been feeling this week on different aspects.', icon: Sun },
   { id: 5, title: 'Recognizing Symptoms', type: 'tips', content: 'Common signs and symptoms of depression.', icon: Cloud },
   { id: 6, title: 'My Symptoms Journey', type: 'journal', content: 'Reflect on the symptoms you\'ve experienced and when they started.', icon: BookOpen },
   { id: 7, title: 'Energy Levels', type: 'assessment', content: 'Track your energy and motivation levels.', icon: Sparkles },
@@ -70,70 +70,18 @@ const motivationalQuotes = [
   "Progress, not perfection."
 ];
 
-/* -------------------------
-   PHQ-9 questions (0-3)
-   ------------------------- */
-const PHQ9_QUESTIONS = [
-  "Little interest or pleasure in doing things",
-  "Feeling down, depressed, or hopeless",
-  "Trouble falling or staying asleep, or sleeping too much",
-  "Feeling tired or having little energy",
-  "Poor appetite or overeating",
-  "Feeling bad about yourself — or that you are a failure or have let yourself or your family down",
-  "Trouble concentrating on things, such as reading the newspaper or watching television",
-  "Moving or speaking so slowly that other people could have noticed; or the opposite — being so fidgety or restless that you have been moving a lot more than usual",
-  "Thoughts that you would be better off dead or of hurting yourself in some way"
-];
-
-/* -------------------------
-   PSS-10 questions (0-4)
-   Some items are reverse-scored: 4,5,7,8 (1-based index)
-   ------------------------- */
-const PSS10_QUESTIONS = [
-  "In the last month, how often have you been upset because of something that happened unexpectedly?",
-  "In the last month, how often have you felt that you were unable to control the important things in your life?",
-  "In the last month, how often have you felt nervous and 'stressed'?",
-  "In the last month, how often have you felt confident about your ability to handle your personal problems?", // reverse
-  "In the last month, how often have you felt that things were going your way?", // reverse
-  "In the last month, how often have you found that you could not cope with all the things that you had to do?",
-  "In the last month, how often have you been able to control irritations in your life?", // reverse
-  "In the last month, how often have you felt that you were on top of things?", // reverse
-  "In the last month, how often have you been angered because of things that were outside of your control?",
-  "In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?"
-];
-
 export const DepressionWorkbook: React.FC = () => {
   const navigate = useNavigate();
-    <Button 
-      onClick={() => navigate("/ai-assistant")} 
-      className="mt-4"
-    >
-      Talk to AI Assistant
-    </Button>
   const [currentPage, setCurrentPage] = useState(0);
   const [journalEntries, setJournalEntries] = useState<Record<number, string>>({});
-  // PHQ-9 answers as score 0..3
-  const [phqAnswers, setPhqAnswers] = useState<number[]>(Array(PHQ9_QUESTIONS.length).fill(-1));
-  // PSS-10 answers as score 0..4
-  const [pssAnswers, setPssAnswers] = useState<number[]>(Array(PSS10_QUESTIONS.length).fill(-1));
-
+  const [assessmentScores, setAssessmentScores] = useState<Record<number, number[]>>({});
   const [completedPages, setCompletedPages] = useState<Set<number>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // UI state for assessment tab selection
-  const [assessmentTab, setAssessmentTab] = useState<'phq' | 'pss'>('phq');
-  const [showPHQResult, setShowPHQResult] = useState(false);
-  const [showPSSResult, setShowPSSResult] = useState(false);
-  const [phqScore, setPhqScore] = useState<number | null>(null);
-  const [pssScore, setPssScore] = useState<number | null>(null);
 
   const progressPercentage = (completedPages.size / workbookPages.length) * 100;
   const currentWorkbookPage = workbookPages[currentPage];
   const PageIcon = currentWorkbookPage.icon;
 
-  /* -------------------------
-     Handlers
-     ------------------------- */
   const handleNext = () => {
     if (currentPage < workbookPages.length - 1) {
       setCompletedPages(prev => new Set([...prev, currentWorkbookPage.id]));
@@ -153,173 +101,16 @@ export const DepressionWorkbook: React.FC = () => {
     setJournalEntries(prev => ({ ...prev, [currentWorkbookPage.id]: value }));
   };
 
-  /* -------------------------
-     PHQ-9 scoring & UI
-     ------------------------- */
-  const setPhqAnswer = (index: number, score: number) => {
-    setPhqAnswers(prev => {
-      const copy = [...prev];
-      copy[index] = score;
-      return copy;
-    });
-  };
-
-  const calculatePHQ9 = () => {
-    // If any unanswered, warn
-    if (phqAnswers.some(v => v === -1)) {
-      toast('Please answer all PHQ-9 questions before submitting.');
-      return;
-    }
-    const sum = phqAnswers.reduce((a, b) => a + b, 0);
-    setPhqScore(sum);
-    setShowPHQResult(true);
-  };
-
-  const interpretPHQ9 = (score: number) => {
-    if (score >= 20) return 'Severe depression (score 20-27). Please seek professional help immediately.';
-    if (score >= 15) return 'Moderately severe depression (score 15-19). Consider contacting a professional.';
-    if (score >= 10) return 'Moderate depression (score 10-14). Please consider professional evaluation.';
-    if (score >= 5) return 'Mild symptoms (score 5-9). Monitor and consider self-help strategies and support.';
-    return 'Minimal or no symptoms (score 0-4). Continue wellness practices.';
-  };
-
-  /* -------------------------
-     PSS-10 scoring & UI
-     ------------------------- */
-  const setPssAnswer = (index: number, score: number) => {
-    setPssAnswers(prev => {
-      const copy = [...prev];
-      copy[index] = score;
-      return copy;
-    });
-  };
-
-  const calculatePSS10 = () => {
-    if (pssAnswers.some(v => v === -1)) {
-      toast('Please answer all PSS-10 questions before submitting.');
-      return;
-    }
-    // Reverse-scored items (1-based indexes): 4,5,7,8 => zero-based: 3,4,6,7
-    const reverseIndexes = new Set([3,4,6,7]);
-    let total = 0;
-    pssAnswers.forEach((val, idx) => {
-      let s = val;
-      if (reverseIndexes.has(idx)) {
-        // reverse 0..4 -> 4..0
-        s = 4 - s;
-      }
-      total += s;
-    });
-    setPssScore(total);
-    setShowPSSResult(true);
-  };
-
-  const interpretPSS10 = (score: number) => {
-    if (score >= 27) return 'High perceived stress. Consider immediate stress management strategies and professional support.';
-    if (score >= 14) return 'Moderate perceived stress. Practicing stress reduction regularly could help.';
-    return 'Low perceived stress. Continue current wellness practices.';
+  const handleAssessmentChange = (index: number, value: number[]) => {
+    const current = assessmentScores[currentWorkbookPage.id] || [];
+    const updated = [...current];
+    updated[index] = value[0];
+    setAssessmentScores(prev => ({ ...prev, [currentWorkbookPage.id]: updated }));
   };
 
   const handleTalkToAI = () => {
-    navigate('/ai-assistant');
+    navigate('/student-dashboard/ai-assistant');
     toast.success('Opening AI Assistant for support');
-  };
-
-  /* -------------------------
-     Renderers
-     ------------------------- */
-  const renderPHQ9 = () => {
-    return (
-      <div className="space-y-4">
-        <p className="text-muted-foreground mb-2">Answer each item based on how often you were bothered by the problem over the last 2 weeks.</p>
-        <div className="space-y-4">
-          {PHQ9_QUESTIONS.map((q, i) => (
-            <div key={i} className="glass-card p-4 rounded-lg">
-              <div className="mb-2 font-medium">{i+1}. {q}</div>
-              <div className="flex gap-3">
-                {[
-                  {label: 'Not at all', value: 0},
-                  {label: 'Several days', value: 1},
-                  {label: 'More than half the days', value: 2},
-                  {label: 'Nearly every day', value: 3},
-                ].map(opt => (
-                  <label key={opt.value} className={`flex items-center gap-2 cursor-pointer select-none ${phqAnswers[i] === opt.value ? 'text-wellness-calm font-medium' : ''}`}>
-                    <input
-                      type="radio"
-                      name={`phq-${i}`}
-                      checked={phqAnswers[i] === opt.value}
-                      onChange={() => setPhqAnswer(i, opt.value)}
-                      className="form-radio"
-                    />
-                    <span className="text-sm">{opt.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex gap-3 items-center">
-          <Button onClick={calculatePHQ9} className="bg-gradient-to-r from-wellness-calm to-wellness-serene">Submit PHQ-9</Button>
-          {showPHQResult && phqScore !== null && (
-            <Card className="glass-card border-0">
-              <CardContent>
-                <div className="text-lg font-semibold">PHQ-9 Score: {phqScore}</div>
-                <div className="text-sm text-muted-foreground mt-2">{interpretPHQ9(phqScore)}</div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderPSS10 = () => {
-    return (
-      <div className="space-y-4">
-        <p className="text-muted-foreground mb-2">For each item, choose how often you felt or thought a certain way in the last month.</p>
-        <div className="space-y-4">
-          {PSS10_QUESTIONS.map((q, i) => (
-            <div key={i} className="glass-card p-4 rounded-lg">
-              <div className="mb-2 font-medium">{i+1}. {q}</div>
-              <div className="flex gap-3">
-                {[
-                  {label: 'Never', value: 0},
-                  {label: 'Almost never', value: 1},
-                  {label: 'Sometimes', value: 2},
-                  {label: 'Fairly often', value: 3},
-                  {label: 'Very often', value: 4},
-                ].map(opt => (
-                  <label key={opt.value} className={`flex items-center gap-2 cursor-pointer select-none ${pssAnswers[i] === opt.value ? 'text-wellness-calm font-medium' : ''}`}>
-                    <input
-                      type="radio"
-                      name={`pss-${i}`}
-                      checked={pssAnswers[i] === opt.value}
-                      onChange={() => setPssAnswer(i, opt.value)}
-                      className="form-radio"
-                    />
-                    <span className="text-sm">{opt.label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex gap-3 items-center">
-          <Button onClick={calculatePSS10} className="bg-gradient-to-r from-wellness-calm to-wellness-serene">Submit PSS-10</Button>
-          {showPSSResult && pssScore !== null && (
-            <Card className="glass-card border-0">
-              <CardContent>
-                <div className="text-lg font-semibold">PSS-10 Score: {pssScore}</div>
-                <div className="text-sm text-muted-foreground mt-2">{interpretPSS10(pssScore)}</div>
-                <div className="text-xs text-muted-foreground mt-2">Note: items 4,5,7,8 are reverse scored (handled automatically).</div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
-    );
   };
 
   const renderPageContent = () => {
@@ -354,15 +145,33 @@ export const DepressionWorkbook: React.FC = () => {
         );
 
       case 'assessment':
-        // Show option to switch between PHQ-9 and PSS-10 (keeps UI consistent)
+        const assessmentItems = [
+          'Overall Mood',
+          'Energy Level',
+          'Sleep Quality',
+          'Social Connection',
+          'Physical Health'
+        ];
         return (
-          <div className="space-y-6">
-            <div className="flex gap-3 mb-4">
-              <Button onClick={() => setAssessmentTab('phq')} variant={assessmentTab === 'phq' ? 'secondary' : 'outline'}>PHQ-9 (Depression)</Button>
-              <Button onClick={() => setAssessmentTab('pss')} variant={assessmentTab === 'pss' ? 'secondary' : 'outline'}>PSS-10 (Stress)</Button>
-            </div>
-
-            {assessmentTab === 'phq' ? renderPHQ9() : renderPSS10()}
+          <div className="space-y-8 animate-fade-in">
+            <p className="text-muted-foreground mb-6">{currentWorkbookPage.content}</p>
+            {assessmentItems.map((item, index) => (
+              <div key={index} className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium">{item}</label>
+                  <span className="text-sm text-wellness-warm">
+                    {(assessmentScores[currentWorkbookPage.id]?.[index] || 50)}%
+                  </span>
+                </div>
+                <Slider
+                  value={[assessmentScores[currentWorkbookPage.id]?.[index] || 50]}
+                  onValueChange={(value) => handleAssessmentChange(index, value)}
+                  max={100}
+                  step={1}
+                  className="w-full"
+                />
+              </div>
+            ))}
           </div>
         );
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { ClipboardList, Plus, Eye, TrendingUp, Users } from 'lucide-react';
 
 export const ScreeningTests = () => {
+  const navigate = useNavigate();
+  
   const screeningTests = [
     {
       id: 1,
@@ -66,7 +69,10 @@ export const ScreeningTests = () => {
               Manage and monitor mental health screening assessments
             </p>
           </div>
-          <Button className="glass-card hover:scale-105 transition-all">
+          <Button 
+            className="glass-card hover:scale-105 transition-all"
+            onClick={() => navigate('/admin-dashboard/screening/create')}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Create New Test
           </Button>
@@ -149,11 +155,20 @@ export const ScreeningTests = () => {
                     <p className="font-medium">{test.lastUpdated}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" className="flex-1">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => navigate(`/admin-dashboard/screening/overview?testId=${test.id}&testName=${encodeURIComponent(test.title)}`)}
+                    >
                       <Eye className="w-4 h-4 mr-1" />
                       View
                     </Button>
-                    <Button size="sm" className="flex-1">
+                    <Button 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => navigate(`/admin-dashboard/screening/analytics?testId=${test.id}&testName=${encodeURIComponent(test.title)}`)}
+                    >
                       <TrendingUp className="w-4 h-4 mr-1" />
                       Analytics
                     </Button>

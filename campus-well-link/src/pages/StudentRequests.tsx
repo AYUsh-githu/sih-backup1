@@ -1,13 +1,33 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar, Clock, MessageCircle, User, CheckCircle, X } from 'lucide-react';
+import { BulkActionToolbar } from '@/components/BulkActionToolbar';
+import { ApproveModal } from '@/components/ApproveModal';
+import { ScheduleModal } from '@/components/ScheduleModal';
+import { MessageDialog } from '@/components/MessageDialog';
+import { DeclineModal } from '@/components/DeclineModal';
+import { toast } from '@/hooks/use-toast';
+
+interface Request {
+  id: number;
+  studentName: string;
+  studentId: string;
+  requestType: string;
+  priority: string;
+  description: string;
+  submittedAt: string;
+  status: string;
+  preferredDate: string;
+  urgency: string;
+}
 
 export const StudentRequests = () => {
-  const requests = [
+  const [requests, setRequests] = useState<Request[]>([
     {
       id: 1,
       studentName: "Sarah Johnson",
@@ -56,7 +76,15 @@ export const StudentRequests = () => {
       preferredDate: "2024-01-22",
       urgency: "Normal"
     }
-  ];
+  ]);
+
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkActionsEnabled, setBulkActionsEnabled] = useState(false);
+  const [approveModalOpen, setApproveModalOpen] = useState(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [declineModalOpen, setDeclineModalOpen] = useState(false);
+  const [currentRequest, setCurrentRequest] = useState<Request | null>(null);
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -75,7 +103,145 @@ export const StudentRequests = () => {
       case 'In Progress': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
       case 'Scheduled': return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
       case 'Completed': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case 'Declined': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
+    }
+  };
+
+  const handleBulkActionsToggle = () => {
+    setBulkActionsEnabled(!bulkActionsEnabled);
+    if (bulkActionsEnabled) {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectRequest = (id: number) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleApprove = (request: Request) => {
+    setCurrentRequest(request);
+    setApproveModalOpen(true);
+  };
+
+  const handleConfirmApprove = () => {
+    if (currentRequest) {
+      setRequests(prev => prev.map(req => 
+        req.id === currentRequest.id ? { ...req, status: 'Approved' } : req
+      ));
+      toast({
+        title: "Request Approved",
+        description: `${currentRequest.studentName}'s request has been approved successfully.`,
+      });
+    }
+    setApproveModalOpen(false);
+    setCurrentRequest(null);
+  };
+
+  const handleSchedule = (request: Request) => {
+    setCurrentRequest(request);
+    setScheduleModalOpen(true);
+  };
+
+  const handleConfirmSchedule = (scheduleData: any) => {
+    if (currentRequest) {
+      setRequests(prev => prev.map(req => 
+        req.id === currentRequest.id ? { ...req, status: 'Scheduled' } : req
+      ));
+      toast({
+        title: "Session Scheduled",
+        description: `Session scheduled for ${currentRequest.studentName} successfully.`,
+      });
+    }
+    setScheduleModalOpen(false);
+    setCurrentRequest(null);
+  };
+
+  const handleMessage = (request: Request) => {
+    setCurrentRequest(request);
+    setMessageDialogOpen(true);
+  };
+
+  const handleSendMessage = (message: string) => {
+    toast({
+      title: "Message Sent",
+      description: `Your message has been sent to ${currentRequest?.studentName}.`,
+    });
+    setMessageDialogOpen(false);
+    setCurrentRequest(null);
+  };
+
+  const handleDecline = (request: Request) => {
+    setCurrentRequest(request);
+    setDeclineModalOpen(true);
+  };
+
+  const handleConfirmDecline = (declineData: any) => {
+    if (currentRequest) {
+      setRequests(prev => prev.map(req => 
+        req.id === currentRequest.id ? { ...req, status: 'Declined' } : req
+      ));
+      toast({
+        title: "Request Declined",
+        description: `${currentRequest.studentName}'s request has been declined.`,
+        variant: "destructive",
+      });
+    }
+    setDeclineModalOpen(false);
+    setCurrentRequest(null);
+  };
+
+  // Bulk action handlers
+  const handleBulkApprove = () => {
+    const selectedRequests = requests.filter(req => selectedIds.includes(req.id));
+    if (selectedRequests.length > 0) {
+      setRequests(prev => prev.map(req => 
+        selectedIds.includes(req.id) ? { ...req, status: 'Approved' } : req
+      ));
+      toast({
+        title: "Bulk Action Complete",
+        description: `${selectedIds.length} request(s) approved successfully.`,
+      });
+      setSelectedIds([]);
+    }
+  };
+
+  const handleBulkSchedule = () => {
+    if (selectedIds.length > 0) {
+      // Open schedule modal for first selected request
+      const firstRequest = requests.find(req => selectedIds.includes(req.id));
+      if (firstRequest) {
+        setCurrentRequest(firstRequest);
+        setScheduleModalOpen(true);
+      }
+    }
+  };
+
+  const handleBulkMessage = () => {
+    if (selectedIds.length > 0) {
+      // Open message dialog for first selected request
+      const firstRequest = requests.find(req => selectedIds.includes(req.id));
+      if (firstRequest) {
+        setCurrentRequest(firstRequest);
+        setMessageDialogOpen(true);
+      }
+    }
+  };
+
+  const handleBulkDecline = () => {
+    const selectedRequests = requests.filter(req => selectedIds.includes(req.id));
+    if (selectedRequests.length > 0) {
+      setRequests(prev => prev.map(req => 
+        selectedIds.includes(req.id) ? { ...req, status: 'Declined' } : req
+      ));
+      toast({
+        title: "Bulk Action Complete",
+        description: `${selectedIds.length} request(s) declined.`,
+        variant: "destructive",
+      });
+      setSelectedIds([]);
     }
   };
 
@@ -90,9 +256,13 @@ export const StudentRequests = () => {
               Manage and respond to student counseling and support requests
             </p>
           </div>
-          <Button className="glass-card hover:scale-105 transition-all">
+          <Button 
+            className="glass-card hover:scale-105 transition-all"
+            onClick={handleBulkActionsToggle}
+            variant={bulkActionsEnabled ? "default" : "outline"}
+          >
             <MessageCircle className="w-4 h-4 mr-2" />
-            Bulk Actions
+            {bulkActionsEnabled ? 'Disable Bulk Actions' : 'Bulk Actions'}
           </Button>
         </div>
 
@@ -143,6 +313,18 @@ export const StudentRequests = () => {
           </Card>
         </div>
 
+        {/* Bulk Actions Toolbar */}
+        {bulkActionsEnabled && (
+          <BulkActionToolbar
+            selectedCount={selectedIds.length}
+            onApproveSelected={handleBulkApprove}
+            onScheduleSelected={handleBulkSchedule}
+            onMessageSelected={handleBulkMessage}
+            onDeclineSelected={handleBulkDecline}
+            onClearSelection={() => setSelectedIds([])}
+          />
+        )}
+
         {/* Requests List */}
         <div className="space-y-4">
           {requests.map((request) => (
@@ -150,6 +332,12 @@ export const StudentRequests = () => {
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-4">
+                    {bulkActionsEnabled && (
+                      <Checkbox
+                        checked={selectedIds.includes(request.id)}
+                        onCheckedChange={() => handleSelectRequest(request.id)}
+                      />
+                    )}
                     <Avatar>
                       <AvatarFallback className="bg-gradient-primary text-white">
                         {request.studentName.split(' ').map(n => n[0]).join('')}
@@ -191,20 +379,37 @@ export const StudentRequests = () => {
                   
                   <div className="flex items-center justify-between pt-4 border-t border-white/20">
                     <div className="flex space-x-2">
-                      <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                      <Button 
+                        size="sm" 
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={() => handleApprove(request)}
+                      >
                         <CheckCircle className="w-4 h-4 mr-1" />
                         Approve
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleSchedule(request)}
+                      >
                         <Calendar className="w-4 h-4 mr-1" />
                         Schedule
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleMessage(request)}
+                      >
                         <MessageCircle className="w-4 h-4 mr-1" />
                         Message
                       </Button>
                     </div>
-                    <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700">
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => handleDecline(request)}
+                    >
                       <X className="w-4 h-4 mr-1" />
                       Decline
                     </Button>
@@ -215,6 +420,47 @@ export const StudentRequests = () => {
           ))}
         </div>
       </div>
+
+      {/* Modals */}
+      <ApproveModal
+        isOpen={approveModalOpen}
+        onClose={() => {
+          setApproveModalOpen(false);
+          setCurrentRequest(null);
+        }}
+        onConfirm={handleConfirmApprove}
+        request={currentRequest}
+      />
+
+      <ScheduleModal
+        isOpen={scheduleModalOpen}
+        onClose={() => {
+          setScheduleModalOpen(false);
+          setCurrentRequest(null);
+        }}
+        onConfirm={handleConfirmSchedule}
+        studentName={currentRequest?.studentName || ''}
+      />
+
+      <MessageDialog
+        isOpen={messageDialogOpen}
+        onClose={() => {
+          setMessageDialogOpen(false);
+          setCurrentRequest(null);
+        }}
+        onSend={handleSendMessage}
+        studentName={currentRequest?.studentName || ''}
+      />
+
+      <DeclineModal
+        isOpen={declineModalOpen}
+        onClose={() => {
+          setDeclineModalOpen(false);
+          setCurrentRequest(null);
+        }}
+        onConfirm={handleConfirmDecline}
+        studentName={currentRequest?.studentName || ''}
+      />
     </DashboardLayout>
   );
 };

@@ -1,12 +1,27 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { BarChart3, Download, Filter, TrendingDown, TrendingUp } from 'lucide-react';
+import { BarChart3, Download, Filter, TrendingDown, TrendingUp, FileText, FileSpreadsheet } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ResultsFilterPanel, FilterValues } from '@/components/ResultsFilterPanel';
+import { StudentResultDetails } from '@/components/StudentResultDetails';
+import { toast } from '@/hooks/use-toast';
 
 export const Results = () => {
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [selectedResult, setSelectedResult] = useState<typeof recentResults[0] | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [filters, setFilters] = useState<FilterValues>({
+    assessmentType: 'all',
+    riskLevel: 'all',
+    minScore: '',
+    maxScore: '',
+  });
+  const [appliedFilters, setAppliedFilters] = useState<FilterValues>(filters);
+
   const recentResults = [
     {
       id: 1,
@@ -78,6 +93,64 @@ export const Results = () => {
     }
   };
 
+  const handleApplyFilters = () => {
+    setAppliedFilters(filters);
+    setFilterOpen(false);
+    toast({
+      title: 'Filters Applied',
+      description: 'Results have been filtered according to your criteria.',
+    });
+  };
+
+  const handleClearFilters = () => {
+    const clearedFilters: FilterValues = {
+      assessmentType: 'all',
+      riskLevel: 'all',
+      minScore: '',
+      maxScore: '',
+    };
+    setFilters(clearedFilters);
+    setAppliedFilters(clearedFilters);
+    toast({
+      title: 'Filters Cleared',
+      description: 'All filters have been reset.',
+    });
+  };
+
+  const handleExport = (format: string) => {
+    toast({
+      title: `Exporting as ${format}`,
+      description: `Your results are being exported as ${format}. Download will start shortly.`,
+    });
+  };
+
+  const handleViewDetails = (result: typeof recentResults[0]) => {
+    setSelectedResult(result);
+    setDetailsOpen(true);
+  };
+
+  const filteredResults = recentResults.filter((result) => {
+    if (appliedFilters.assessmentType !== 'all') {
+      const typeMap: Record<string, string> = {
+        phq9: 'Depression Screening (PHQ-9)',
+        gad7: 'Anxiety Assessment (GAD-7)',
+        stress: 'Stress Level Evaluation',
+        sleep: 'Sleep Quality Index',
+      };
+      if (result.testType !== typeMap[appliedFilters.assessmentType]) return false;
+    }
+    if (appliedFilters.riskLevel !== 'all' && result.riskLevel !== appliedFilters.riskLevel) {
+      return false;
+    }
+    if (appliedFilters.minScore && result.score < parseInt(appliedFilters.minScore)) {
+      return false;
+    }
+    if (appliedFilters.maxScore && result.score > parseInt(appliedFilters.maxScore)) {
+      return false;
+    }
+    return true;
+  });
+
   return (
     <DashboardLayout userType="admin">
       <div className="space-y-6">
@@ -90,14 +163,36 @@ export const Results = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" className="glass-card">
+            <Button
+              variant="outline"
+              className="glass-card"
+              onClick={() => setFilterOpen(true)}
+            >
               <Filter className="w-4 h-4 mr-2" />
               Filter
             </Button>
-            <Button className="glass-card hover:scale-105 transition-all">
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="glass-card hover:scale-105 transition-all">
+                  <Download className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => handleExport('CSV')}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('PDF')}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Export as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('Excel')}>
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  Export as Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -158,7 +253,12 @@ export const Results = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentResults.map((result) => (
+              {filteredResults.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No results match your filter criteria
+                </div>
+              ) : (
+                filteredResults.map((result) => (
                 <div key={result.id} className="flex items-center justify-between p-4 rounded-lg border border-white/20 hover:bg-white/5 transition-all">
                   <div className="flex items-center space-x-4">
                     <Avatar>
@@ -191,16 +291,35 @@ export const Results = () => {
                       {getTrendIcon(result.trend)}
                     </div>
                     
-                    <Button size="sm" variant="outline">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleViewDetails(result)}
+                    >
                       View Details
                     </Button>
                   </div>
                 </div>
-              ))}
+              )))}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <ResultsFilterPanel
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        filters={filters}
+        onFiltersChange={setFilters}
+        onApply={handleApplyFilters}
+        onClear={handleClearFilters}
+      />
+
+      <StudentResultDetails
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        result={selectedResult}
+      />
     </DashboardLayout>
   );
 };

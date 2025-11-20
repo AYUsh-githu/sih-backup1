@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { ShimmerCard } from '@/components/LoadingSpinner';
 
 export const AdminDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1500);
@@ -135,7 +137,7 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                 </div>
               ))}
-              <Button className="w-full btn-glass">
+              <Button className="w-full btn-glass" onClick={() => navigate('/admin-dashboard/alerts')}>
                 View All Alerts
               </Button>
             </CardContent>
@@ -200,7 +202,7 @@ export const AdminDashboard: React.FC = () => {
               <CardDescription>Create and manage mental health assessments</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full btn-primary">
+              <Button className="w-full btn-primary" onClick={() => navigate('/admin-dashboard/screening')}>
                 Manage Tests
               </Button>
             </CardContent>
@@ -215,7 +217,7 @@ export const AdminDashboard: React.FC = () => {
               <CardDescription>View detailed reports and insights</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full btn-secondary">
+              <Button className="w-full btn-secondary" onClick={() => navigate('/admin-dashboard/results')}>
                 View Reports
               </Button>
             </CardContent>
@@ -230,7 +232,7 @@ export const AdminDashboard: React.FC = () => {
               <CardDescription>Monitor student progress and requests</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button className="w-full btn-glass">
+              <Button className="w-full btn-glass" onClick={() => navigate('/admin-dashboard/requests')}>
                 Manage Students
               </Button>
             </CardContent>
