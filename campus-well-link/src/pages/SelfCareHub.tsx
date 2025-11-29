@@ -5,13 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Heart, 
-  Wind, 
-  Brain, 
-  Zap, 
-  BookOpen, 
-  Moon, 
+import {
+  Heart,
+  Wind,
+  Brain,
+  Zap,
+  BookOpen,
+  Moon,
   Star,
   Target,
   Award,
@@ -25,10 +25,12 @@ import {
   Timer,
   Calendar
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { BreathingExercise } from '@/components/BreathingExercise';
 import { MovementExercises } from '@/components/MovementExercises';
 import { MindfulnessActivity } from '@/components/MindfulnessActivity';
 import { ShimmerCard } from '@/components/LoadingSpinner';
+import { MeditationHub } from '@/components/MeditationHub';
 
 interface Activity {
   id: string;
@@ -60,33 +62,101 @@ export const SelfCareHub: React.FC = () => {
     totalTime: 0,
     currentActivity: null
   });
-  
-  // Mock data for user progress
-  const currentStreak = 15;
+
+  const [stats, setStats] = useState({
+    streak: 0,
+    todayCount: 0,
+    totalMinutes: 0
+  });
+
   const dailyGoal = 5;
-  const completedToday = 3;
-  const progressPercentage = (completedToday / dailyGoal) * 100;
+  const progressPercentage = (stats.todayCount / dailyGoal) * 100;
 
   useEffect(() => {
     const loadTimer = setTimeout(() => setIsLoading(false), 1000);
+    fetchStats();
     return () => clearTimeout(loadTimer);
   }, []);
 
-  // Timer effect
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (timer.isActive && timer.timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimer(prev => ({
-          ...prev,
-          timeLeft: prev.timeLeft - 1
-        }));
-      }, 1000);
-    } else if (timer.timeLeft === 0 && timer.isActive) {
-      setTimer(prev => ({ ...prev, isActive: false }));
+  const fetchStats = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString();
+
+      // 1. Fetch Today's Activities Count
+      const { count: todayCount } = await supabase
+        .from('user_activities')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('created_at', todayStr);
+
+      // 2. Fetch Total Time Spent from Profiles
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('total_time_spent')
+        .eq('id', user.id)
+        .single();
+
+      let totalMinutes = 0;
+      if (profile && profile.total_time_spent) {
+        totalMinutes = profile.total_time_spent;
+      }
+
+      // 3. Calculate Streak
+      // Fetch all activity dates for the user, ordered by date desc
+      const { data: activityDates } = await supabase
+        .from('user_activities')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      let currentStreak = 0;
+      if (activityDates && activityDates.length > 0) {
+        const uniqueDates = new Set(activityDates.map(a => new Date(a.created_at).toDateString()));
+        const sortedDates = Array.from(uniqueDates).map(d => new Date(d)).sort((a, b) => b.getTime() - a.getTime());
+
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+
+        // Check if the most recent activity was today or yesterday to start the streak
+        const lastActivityDate = sortedDates[0];
+        lastActivityDate.setHours(0, 0, 0, 0);
+
+        const diffTime = Math.abs(todayDate.getTime() - lastActivityDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays <= 1) {
+          currentStreak = 1;
+          for (let i = 0; i < sortedDates.length - 1; i++) {
+            const d1 = sortedDates[i];
+            const d2 = sortedDates[i + 1];
+            d1.setHours(0, 0, 0, 0);
+            d2.setHours(0, 0, 0, 0);
+
+            const diff = (d1.getTime() - d2.getTime()) / (1000 * 3600 * 24);
+            if (diff === 1) {
+              currentStreak++;
+            } else {
+              break;
+            }
+          }
+        }
+      }
+
+      setStats({
+        streak: currentStreak,
+        todayCount: todayCount || 0,
+        totalMinutes: Math.round(totalMinutes)
+      });
+
+    } catch (error) {
+      console.error('Error fetching stats:', error);
     }
-    return () => clearInterval(interval);
-  }, [timer.isActive, timer.timeLeft]);
+  };
 
   const activities: Activity[] = [
     {
@@ -151,6 +221,54 @@ export const SelfCareHub: React.FC = () => {
     }
   ];
 
+  const logActivity = async (type: string, title: string, details: any = {}) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await fetch('http://127.0.0.1:5000/api/activities/log', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            activity_type: type,
+            title: title,
+            details: details
+          })
+        });
+        // Refresh stats after logging
+        fetchStats();
+      }
+    } catch (error) {
+      console.error('Failed to log activity:', error);
+    }
+  };
+
+  // Timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (timer.isActive && timer.timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimer(prev => ({
+          ...prev,
+          timeLeft: prev.timeLeft - 1
+        }));
+      }, 1000);
+    } else if (timer.timeLeft === 0 && timer.isActive) {
+      setTimer(prev => ({ ...prev, isActive: false }));
+      // Log activity completion
+      if (timer.currentActivity) {
+        const activity = activities.find(a => a.id === timer.currentActivity);
+        if (activity) {
+          logActivity(activity.category, `Completed: ${activity.title}`, { duration: activity.duration });
+        }
+      }
+    }
+    return () => clearInterval(interval);
+  }, [timer.isActive, timer.timeLeft, timer.currentActivity]);
+
   const featuredCategories = [
     { id: 'all', label: 'All Activities', icon: Heart, color: 'from-pink-500 to-rose-500' },
     { id: 'breathing', label: 'Breathing', icon: Wind, color: 'from-blue-500 to-cyan-500' },
@@ -169,8 +287,8 @@ export const SelfCareHub: React.FC = () => {
     }
   };
 
-  const filteredActivities = selectedCategory === 'all' 
-    ? activities 
+  const filteredActivities = selectedCategory === 'all'
+    ? activities
     : activities.filter(activity => activity.category === selectedCategory);
 
   const handleCategoryClick = (categoryId: string) => {
@@ -197,7 +315,7 @@ export const SelfCareHub: React.FC = () => {
       navigate('/journal');
       return;
     }
-    
+
     setTimer({
       isActive: true,
       timeLeft: activity.duration * 60,
@@ -227,12 +345,26 @@ export const SelfCareHub: React.FC = () => {
 
   // Show Movement Exercises component when movement category is selected
   if (selectedCategory === 'movement') {
-    return <MovementExercises onBack={() => setSelectedCategory('all')} />;
+    return <MovementExercises
+      onBack={() => setSelectedCategory('all')}
+      onComplete={(name, duration) => logActivity('movement', `Completed: ${name}`, { duration })}
+    />;
   }
 
   // Show Mindfulness Activity component when mindfulness category is selected
   if (selectedCategory === 'mindfulness') {
-    return <MindfulnessActivity onBack={() => setSelectedCategory('all')} />;
+    return <MindfulnessActivity
+      onBack={() => setSelectedCategory('all')}
+      onComplete={(name, duration) => logActivity('mindfulness', `Completed: ${name}`, { duration })}
+    />;
+  }
+
+  // Show Meditation Hub when meditation category is selected
+  if (selectedCategory === 'meditation') {
+    return <MeditationHub
+      onBack={() => setSelectedCategory('all')}
+      onComplete={(name, duration) => logActivity('meditation', `Completed: ${name}`, { duration })}
+    />;
   }
 
   if (isLoading) {
@@ -281,11 +413,11 @@ export const SelfCareHub: React.FC = () => {
                 <div className="text-6xl font-mono font-bold text-wellness-calm">
                   {formatTime(timer.timeLeft)}
                 </div>
-                
+
                 <div className="space-y-2">
-                  <Progress 
-                    value={((timer.totalTime - timer.timeLeft) / timer.totalTime) * 100} 
-                    className="h-2" 
+                  <Progress
+                    value={((timer.totalTime - timer.timeLeft) / timer.totalTime) * 100}
+                    className="h-2"
                   />
                   <p className="text-sm text-muted-foreground">
                     {Math.round(((timer.totalTime - timer.timeLeft) / timer.totalTime) * 100)}% complete
@@ -322,13 +454,12 @@ export const SelfCareHub: React.FC = () => {
               const category = featuredCategories.find(c => c.id === activity.category);
               const Icon = category?.icon || Heart;
               const isActive = timer.currentActivity === activity.id;
-              
+
               return (
                 <Card
                   key={activity.id}
-                  className={`glass-card border-0 hover:shadow-xl transition-all duration-500 cursor-pointer tilt-card group ${
-                    isActive ? 'ring-2 ring-wellness-calm bg-wellness-calm/10' : ''
-                  }`}
+                  className={`glass-card border-0 hover:shadow-xl transition-all duration-500 cursor-pointer tilt-card group ${isActive ? 'ring-2 ring-wellness-calm bg-wellness-calm/10' : ''
+                    }`}
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   <CardHeader>
@@ -337,8 +468,8 @@ export const SelfCareHub: React.FC = () => {
                         <Icon className="w-6 h-6 text-white" />
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        <Badge 
-                          variant="secondary" 
+                        <Badge
+                          variant="secondary"
                           className={`text-xs ${getDifficultyColor(activity.difficulty)} text-white`}
                         >
                           {activity.difficulty}
@@ -364,7 +495,7 @@ export const SelfCareHub: React.FC = () => {
                         </div>
                       )}
                     </div>
-                    <Button 
+                    <Button
                       className="w-full btn-glass group-hover:bg-white/30"
                       onClick={() => startActivity(activity)}
                       disabled={isActive}
@@ -399,23 +530,23 @@ export const SelfCareHub: React.FC = () => {
             <p className="text-xl text-muted-foreground mb-6">
               Take a moment for yourself with personalized wellness activities
             </p>
-            
+
             {/* Streak and Progress */}
             <div className="flex flex-col md:flex-row items-center justify-center gap-8 mb-6">
               <div className="flex items-center gap-3">
                 <Star className="w-8 h-8 text-wellness-warm" />
                 <div>
-                  <div className="text-2xl font-bold text-wellness-warm">{currentStreak} days</div>
+                  <div className="text-2xl font-bold text-wellness-warm">{stats.streak} days</div>
                   <div className="text-sm text-muted-foreground">Current streak</div>
                 </div>
               </div>
-              
+
               <div className="w-px h-16 bg-white/20 hidden md:block" />
-              
+
               <div className="flex items-center gap-3">
                 <Target className="w-8 h-8 text-wellness-calm" />
                 <div>
-                  <div className="text-2xl font-bold text-wellness-calm">{completedToday}/{dailyGoal}</div>
+                  <div className="text-2xl font-bold text-wellness-calm">{stats.todayCount}/{dailyGoal}</div>
                   <div className="text-sm text-muted-foreground">Today's progress</div>
                 </div>
               </div>
@@ -424,15 +555,15 @@ export const SelfCareHub: React.FC = () => {
             <div className="max-w-md mx-auto space-y-2">
               <Progress value={progressPercentage} className="h-2" />
               <p className="text-sm text-muted-foreground">
-                {progressPercentage >= 100 
-                  ? "🎉 Daily goal achieved! Amazing work!" 
-                  : `${dailyGoal - completedToday} more activities to reach your goal`
+                {progressPercentage >= 100
+                  ? "🎉 Daily goal achieved! Amazing work!"
+                  : `${dailyGoal - stats.todayCount} more activities to reach your goal`
                 }
               </p>
             </div>
 
             {/* Quick Relax Button */}
-            <Button 
+            <Button
               onClick={handleQuickRelax}
               className="mt-6 bg-gradient-to-r from-wellness-calm to-wellness-peaceful hover:from-wellness-calm/90 hover:to-wellness-peaceful/90 text-white border-0 px-8 py-3"
               size="lg"
@@ -469,9 +600,9 @@ export const SelfCareHub: React.FC = () => {
               <CheckCircle className="h-4 w-4 text-wellness-calm" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-wellness-calm">{completedToday}</div>
+              <div className="text-3xl font-bold text-wellness-calm">{stats.todayCount}</div>
               <p className="text-xs text-muted-foreground">
-                {progressPercentage >= 100 ? "Goal achieved!" : `${dailyGoal - completedToday} remaining`}
+                {progressPercentage >= 100 ? "Goal achieved!" : `${Math.max(0, dailyGoal - stats.todayCount)} remaining`}
               </p>
             </CardContent>
           </Card>
@@ -482,7 +613,7 @@ export const SelfCareHub: React.FC = () => {
               <Target className="h-4 w-4 text-wellness-serene" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-wellness-serene">{currentStreak}</div>
+              <div className="text-3xl font-bold text-wellness-serene">{stats.streak}</div>
               <p className="text-xs text-muted-foreground">days in a row</p>
             </CardContent>
           </Card>
@@ -493,22 +624,24 @@ export const SelfCareHub: React.FC = () => {
               <Award className="h-4 w-4 text-wellness-peaceful" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-wellness-peaceful">247</div>
-              <p className="text-xs text-muted-foreground">this week</p>
+              <div className="text-3xl font-bold text-wellness-peaceful">{stats.totalMinutes}</div>
+              <p className="text-xs text-muted-foreground">total time</p>
             </CardContent>
           </Card>
         </div>
       </div>
-      
-      <BreathingExercise 
-        isOpen={isQuickRelaxOpen} 
+
+      <BreathingExercise
+        isOpen={isQuickRelaxOpen}
         onClose={() => setIsQuickRelaxOpen(false)}
         duration={120} // 2 minutes for quick relax
+        onComplete={(duration) => logActivity('breathing', 'Completed: Quick Relax', { duration })}
       />
-      
-      <BreathingExercise 
-        isOpen={isBreathingOpen} 
-        onClose={() => setIsBreathingOpen(false)} 
+
+      <BreathingExercise
+        isOpen={isBreathingOpen}
+        onClose={() => setIsBreathingOpen(false)}
+        onComplete={(duration) => logActivity('breathing', 'Completed: Breathing Exercise', { duration })}
       />
     </DashboardLayout>
   );

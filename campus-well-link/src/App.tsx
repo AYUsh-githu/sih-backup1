@@ -9,9 +9,11 @@ import { StudentLogin } from "./pages/StudentLogin";
 import { AdminLogin } from "./pages/AdminLogin";
 import { StudentDashboard } from "./pages/StudentDashboard";
 import { AdminDashboard } from "./pages/AdminDashboard";
+import { AdminCalendar } from "./pages/AdminCalendar";
 import { AIAssistant } from "./pages/AIAssistant";
 import { Resources } from "./pages/Resources";
 import { ResourcesHub } from "./pages/ResourcesHub";
+import { ResourceView } from "./pages/ResourceView";
 import { SelfCareHub } from "./pages/SelfCareHub";
 import { BookSession } from "./pages/BookSession";
 import { ScreeningTests } from "./pages/ScreeningTests";
@@ -31,6 +33,8 @@ import { MindfulnessMeditation } from "./pages/MindfulnessMeditation";
 import { ResilienceArticle } from "./pages/ResilienceArticle";
 import { SleepHealth } from "./pages/SleepHealth";
 import { StressManagement } from "./pages/StressManagement";
+import { StudentAssessments } from "./pages/StudentAssessments";
+import { AssessmentRunner } from "./pages/AssessmentRunner";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,6 +56,8 @@ const App = () => (
             <Route path="/student-dashboard/resources-hub" element={<ResourcesHub />} />
             <Route path="/self-care-hub" element={<SelfCareHub />} />
             <Route path="/student-dashboard/booking" element={<BookSession />} />
+            <Route path="/student-dashboard/assessments" element={<StudentAssessments />} />
+            <Route path="/student-dashboard/assessments/:id" element={<AssessmentRunner />} />
             <Route path="/admin-dashboard" element={<AdminDashboard />} />
             <Route path="/admin-dashboard/resources" element={<Resources />} />
             <Route path="/admin-dashboard/screening" element={<ScreeningTests />} />
@@ -61,6 +67,7 @@ const App = () => (
             <Route path="/admin-dashboard/results" element={<Results />} />
             <Route path="/admin-dashboard/requests" element={<StudentRequests />} />
             <Route path="/admin-dashboard/alerts" element={<Alerts />} />
+            <Route path="/admin/calendar" element={<AdminCalendar />} />
             <Route path="/mood-checkin" element={<MoodCheckin />} />
             <Route path="/journal" element={<Journal />} />
             <Route path="/stress-assessment" element={<StressAssessment />} />
@@ -71,6 +78,7 @@ const App = () => (
             <Route path="/resilience-article" element={<ResilienceArticle />} />
             <Route path="/sleep-health" element={<SleepHealth />} />
             <Route path="/stress-management" element={<StressManagement />} />
+            <Route path="/student-dashboard/resources/:id" element={<ResourceView />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -7,12 +7,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Calendar as CalendarIcon, 
-  Clock, 
-  User, 
-  Video, 
-  Phone, 
+import {
+  Calendar as CalendarIcon,
+  Clock,
+  User,
+  Video,
+  Phone,
   MessageSquare,
   Star,
   Award,
@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { ShimmerCard } from '@/components/LoadingSpinner';
 import { format, addDays, startOfToday, isSameDay } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Counselor {
   id: string;
@@ -45,13 +47,13 @@ interface BookingData {
   counselorId: string;
   date: Date | undefined;
   timeSlot: string;
-  sessionType: 'video' | 'phone' | 'chat';
+  sessionType: 'video' | 'audio' | 'chat';
   reason: string;
   notes: string;
 }
 
-export const BookSession: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(true);
+export function BookSession() {
+  const [step, setStep] = useState(1);
   const [selectedCounselor, setSelectedCounselor] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [bookingData, setBookingData] = useState<BookingData>({
@@ -62,84 +64,99 @@ export const BookSession: React.FC = () => {
     reason: '',
     notes: ''
   });
-  const [step, setStep] = useState(1); // 1: Select Counselor, 2: Select Date/Time, 3: Session Details, 4: Confirmation
+  const [counselors, setCounselors] = useState<Counselor[]>([]);
+  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1200);
-    return () => clearTimeout(timer);
-  }, []);
+  const sessionTypes = [
+    { value: 'video', label: 'Video Call', icon: Video },
+    { value: 'audio', label: 'Voice Call', icon: Phone },
+    { value: 'chat', label: 'Chat Session', icon: MessageSquare },
+  ];
 
-  const counselors: Counselor[] = [
-    {
-      id: '1',
-      name: 'Dr. Sarah Johnson',
-      title: 'Licensed Clinical Psychologist',
-      specialties: ['Anxiety', 'Depression', 'Trauma'],
-      rating: 4.9,
-      experience: '8 years',
-      available: true,
-      bio: 'Specializes in cognitive behavioral therapy and mindfulness-based approaches.'
-    },
-    {
-      id: '2',
-      name: 'Dr. Michael Chen',
-      title: 'Mental Health Counselor',
-      specialties: ['Stress Management', 'Academic Pressure', 'Relationships'],
-      rating: 4.8,
-      experience: '6 years',
-      available: true,
-      bio: 'Focuses on helping students navigate academic and social challenges.'
-    },
-    {
-      id: '3',
-      name: 'Dr. Emily Rodriguez',
-      title: 'Licensed Therapist',
-      specialties: ['Self-esteem', 'Life Transitions', 'Wellness'],
-      rating: 4.9,
-      experience: '10 years',
-      available: false,
-      bio: 'Expert in helping individuals build confidence and navigate life changes.'
-    },
-    {
-      id: '4',
-      name: 'Dr. James Wilson',
-      title: 'Clinical Social Worker',
-      specialties: ['Crisis Support', 'Coping Skills', 'Support Groups'],
-      rating: 4.7,
-      experience: '12 years',
-      available: true,
-      bio: 'Experienced in crisis intervention and developing practical coping strategies.'
-    }
+  const reasonOptions = [
+    "Academic Stress",
+    "Anxiety & Depression",
+    "Relationship Issues",
+    "Career Guidance",
+    "Personal Development",
+    "Other"
   ];
 
   const timeSlots: TimeSlot[] = [
     { id: '1', time: '09:00 AM', available: true },
-    { id: '2', time: '10:00 AM', available: false },
+    { id: '2', time: '10:00 AM', available: true },
     { id: '3', time: '11:00 AM', available: true },
-    { id: '4', time: '01:00 PM', available: true },
-    { id: '5', time: '02:00 PM', available: true },
-    { id: '6', time: '03:00 PM', available: false },
-    { id: '7', time: '04:00 PM', available: true },
-    { id: '8', time: '05:00 PM', available: true }
+    { id: '4', time: '02:00 PM', available: true },
+    { id: '5', time: '03:00 PM', available: true },
+    { id: '6', time: '04:00 PM', available: true },
   ];
 
-  const sessionTypes = [
-    { value: 'video', label: 'Video Call', icon: Video, description: 'Face-to-face video session' },
-    { value: 'phone', label: 'Phone Call', icon: Phone, description: 'Voice-only session' },
-    { value: 'chat', label: 'Text Chat', icon: MessageSquare, description: 'Text-based session' }
-  ];
+  useEffect(() => {
+    const fetchCounselors = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('counselors')
+          .select('*')
+          .order('name');
 
-  const reasonOptions = [
-    'Anxiety and Stress',
-    'Depression',
-    'Academic Pressure',
-    'Relationship Issues',
-    'Self-esteem',
-    'Life Transitions',
-    'Crisis Support',
-    'General Wellness Check',
-    'Other'
-  ];
+        if (error) throw error;
+
+        if (data) {
+          setCounselors(data.map(c => ({
+            ...c,
+            available: c.is_available // Map is_available to available
+          })));
+        }
+      } catch (error) {
+        console.error('Error fetching counselors:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load counselors. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCounselors();
+  }, [toast]);
+
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      if (!selectedCounselor || !selectedDate) return;
+
+      try {
+        // Start of the selected day
+        const startDate = new Date(selectedDate);
+        startDate.setHours(0, 0, 0, 0);
+
+        // End of the selected day
+        const endDate = new Date(selectedDate);
+        endDate.setHours(23, 59, 59, 999);
+
+        const { data, error } = await supabase
+          .from('sessions')
+          .select('time_slot')
+          .eq('counselor_id', selectedCounselor)
+          .gte('date', startDate.toISOString())
+          .lte('date', endDate.toISOString())
+          .neq('status', 'cancelled'); // Don't count cancelled sessions
+
+        if (error) throw error;
+
+        if (data) {
+          setBookedSlots(data.map(s => s.time_slot));
+        }
+      } catch (error) {
+        console.error('Error fetching availability:', error);
+      }
+    };
+
+    fetchAvailability();
+  }, [selectedCounselor, selectedDate]);
 
   const handleCounselorSelect = (counselorId: string) => {
     setSelectedCounselor(counselorId);
@@ -157,10 +174,85 @@ export const BookSession: React.FC = () => {
     setStep(3);
   };
 
-  const handleBookingSubmit = () => {
-    // In a real app, this would submit to an API
-    console.log('Booking submitted:', bookingData);
-    setStep(4);
+  const handleBookingSubmit = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to book a session.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!bookingData.date) return;
+
+      // Combine date and time into a single timestamp
+      const sessionDate = new Date(bookingData.date);
+      const [time, modifier] = bookingData.timeSlot.split(' ');
+      let [hours, minutes] = time.split(':');
+      if (hours === '12') {
+        hours = '00';
+      }
+      if (modifier === 'PM') {
+        hours = (parseInt(hours, 10) + 12).toString();
+      }
+      sessionDate.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+
+      const { error } = await supabase
+        .from('sessions')
+        .insert({
+          user_id: user.id,
+          counselor_id: bookingData.counselorId,
+          date: sessionDate.toISOString(),
+          time_slot: bookingData.timeSlot,
+          session_type: bookingData.sessionType,
+          reason: bookingData.reason,
+          notes: bookingData.notes,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      setStep(4);
+      toast({
+        title: "Success",
+        description: "Your session has been booked successfully.",
+      });
+
+      // Log activity
+      try {
+        await fetch('/api/activities/log', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          },
+          body: JSON.stringify({
+            user_id: user.id,
+            activity_type: 'booking',
+            title: 'Scheduled Counseling Session',
+            details: {
+              counselor_id: bookingData.counselorId,
+              date: sessionDate.toISOString(),
+              time_slot: bookingData.timeSlot
+            }
+          })
+        });
+      } catch (error) {
+        console.error('Failed to log activity:', error);
+      }
+
+    } catch (error) {
+      console.error('Error booking session:', error);
+      toast({
+        title: "Error",
+        description: "Failed to book session. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const resetBooking = () => {
@@ -233,7 +325,7 @@ export const BookSession: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-3">
                 <p className="text-muted-foreground">
                   You'll receive a confirmation email with session details and access instructions.
@@ -265,16 +357,15 @@ export const BookSession: React.FC = () => {
           <p className="text-xl text-muted-foreground mb-6">
             We're here to support you on your mental wellness journey. Take the first step towards feeling better.
           </p>
-          
+
           {/* Progress Steps */}
           <div className="flex justify-center items-center space-x-4 max-w-md mx-auto">
             {[1, 2, 3].map((stepNumber) => (
               <React.Fragment key={stepNumber}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
-                  step >= stepNumber 
-                    ? 'bg-wellness-calm text-white' 
-                    : 'bg-gray-200 text-gray-500'
-                }`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${step >= stepNumber
+                  ? 'bg-wellness-calm text-white'
+                  : 'bg-gray-200 text-gray-500'
+                  }`}>
                   {stepNumber}
                 </div>
                 {stepNumber < 3 && (
@@ -298,9 +389,8 @@ export const BookSession: React.FC = () => {
               {counselors.map((counselor, index) => (
                 <Card
                   key={counselor.id}
-                  className={`glass-card border-0 hover:shadow-xl transition-all duration-500 cursor-pointer tilt-card group ${
-                    !counselor.available ? 'opacity-60' : ''
-                  }`}
+                  className={`glass-card border-0 hover:shadow-xl transition-all duration-500 cursor-pointer tilt-card group ${!counselor.available ? 'opacity-60' : ''
+                    }`}
                   onClick={() => counselor.available && handleCounselorSelect(counselor.id)}
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
@@ -340,7 +430,7 @@ export const BookSession: React.FC = () => {
                         </Badge>
                       ))}
                     </div>
-                    <Button 
+                    <Button
                       className="w-full btn-glass group-hover:bg-white/30"
                       disabled={!counselor.available}
                     >
@@ -363,7 +453,7 @@ export const BookSession: React.FC = () => {
                 Booking with {counselors.find(c => c.id === selectedCounselor)?.name}
               </p>
             </div>
-            
+
             <div className="grid lg:grid-cols-3 gap-8">
               {/* Calendar */}
               <Card className="glass-card border-0">
@@ -398,17 +488,21 @@ export const BookSession: React.FC = () => {
                 <CardContent>
                   {selectedDate ? (
                     <div className="grid grid-cols-2 gap-3">
-                      {timeSlots.map((slot) => (
-                        <Button
-                          key={slot.id}
-                          onClick={() => slot.available && handleTimeSelect(slot.time)}
-                          variant={slot.available ? "outline" : "secondary"}
-                          disabled={!slot.available}
-                          className={`btn-glass ${slot.available ? 'hover:bg-white/30' : 'opacity-50'}`}
-                        >
-                          {slot.time}
-                        </Button>
-                      ))}
+                      {timeSlots.map((slot) => {
+                        const isBooked = bookedSlots.includes(slot.time);
+                        const isAvailable = slot.available && !isBooked;
+                        return (
+                          <Button
+                            key={slot.id}
+                            onClick={() => isAvailable && handleTimeSelect(slot.time)}
+                            variant={isAvailable ? "outline" : "secondary"}
+                            disabled={!isAvailable}
+                            className={`btn-glass ${isAvailable ? 'hover:bg-white/30' : 'opacity-50'}`}
+                          >
+                            {slot.time}
+                          </Button>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-center text-muted-foreground py-8">
@@ -437,7 +531,7 @@ export const BookSession: React.FC = () => {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-wellness-serene/10 to-wellness-warm/10">
                       <CalendarIcon className="w-5 h-5 text-wellness-serene" />
                       <div>
@@ -447,7 +541,7 @@ export const BookSession: React.FC = () => {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-wellness-peaceful/10 to-wellness-warm/10">
                       <Clock className="w-5 h-5 text-wellness-peaceful" />
                       <div>
@@ -458,7 +552,7 @@ export const BookSession: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="pt-4 border-t border-white/20">
                     <p className="text-xs text-muted-foreground text-center">
                       Complete your selection to proceed to session details
@@ -482,70 +576,69 @@ export const BookSession: React.FC = () => {
             <div className="text-center">
               <h2 className="text-2xl font-semibold mb-2">Session Details</h2>
               <p className="text-muted-foreground">
-                {selectedDate && bookingData.timeSlot && 
+                {selectedDate && bookingData.timeSlot &&
                   `${format(selectedDate, 'MMMM d, yyyy')} at ${bookingData.timeSlot}`
                 }
               </p>
             </div>
-            
+
             <div className="grid lg:grid-cols-3 gap-8">
               {/* Session Details Form */}
               <div className="lg:col-span-2 space-y-6">
 
-              <Card className="glass-card border-0">
-                <CardContent className="p-6 space-y-6">
-                  {/* Session Type */}
-                  <div>
-                    <label className="text-sm font-medium mb-3 block">Session Type</label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {sessionTypes.map((type) => {
-                        const Icon = type.icon;
-                        return (
-                          <Button
-                            key={type.value}
-                            onClick={() => setBookingData(prev => ({ ...prev, sessionType: type.value as any }))}
-                            variant={bookingData.sessionType === type.value ? "default" : "outline"}
-                            className={`btn-glass flex flex-col items-center p-4 h-auto ${
-                              bookingData.sessionType === type.value ? 'bg-white/30' : ''
-                            }`}
-                          >
-                            <Icon className="w-6 h-6 mb-2" />
-                            <span className="text-sm">{type.label}</span>
-                          </Button>
-                        );
-                      })}
+                <Card className="glass-card border-0">
+                  <CardContent className="p-6 space-y-6">
+                    {/* Session Type */}
+                    <div>
+                      <label className="text-sm font-medium mb-3 block">Session Type</label>
+                      <div className="grid grid-cols-3 gap-3">
+                        {sessionTypes.map((type) => {
+                          const Icon = type.icon;
+                          return (
+                            <Button
+                              key={type.value}
+                              onClick={() => setBookingData(prev => ({ ...prev, sessionType: type.value as any }))}
+                              variant={bookingData.sessionType === type.value ? "default" : "outline"}
+                              className={`btn-glass flex flex-col items-center p-4 h-auto ${bookingData.sessionType === type.value ? 'bg-white/30' : ''
+                                }`}
+                            >
+                              <Icon className="w-6 h-6 mb-2" />
+                              <span className="text-sm">{type.label}</span>
+                            </Button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Reason for Visit */}
-                  <div>
-                    <label className="text-sm font-medium mb-3 block">Reason for Visit</label>
-                    <Select value={bookingData.reason} onValueChange={(value) => setBookingData(prev => ({ ...prev, reason: value }))}>
-                      <SelectTrigger className="glass-input">
-                        <SelectValue placeholder="Select a reason" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {reasonOptions.map((reason) => (
-                          <SelectItem key={reason} value={reason}>
-                            {reason}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    {/* Reason for Visit */}
+                    <div>
+                      <label className="text-sm font-medium mb-3 block">Reason for Visit</label>
+                      <Select value={bookingData.reason} onValueChange={(value) => setBookingData(prev => ({ ...prev, reason: value }))}>
+                        <SelectTrigger className="glass-input">
+                          <SelectValue placeholder="Select a reason" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {reasonOptions.map((reason) => (
+                            <SelectItem key={reason} value={reason}>
+                              {reason}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  {/* Additional Notes */}
-                  <div>
-                    <label className="text-sm font-medium mb-3 block">Additional Notes (Optional)</label>
-                    <Textarea
-                      placeholder="Is there anything specific you'd like to discuss?"
-                      value={bookingData.notes}
-                      onChange={(e) => setBookingData(prev => ({ ...prev, notes: e.target.value }))}
-                      className="glass-input min-h-[100px]"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+                    {/* Additional Notes */}
+                    <div>
+                      <label className="text-sm font-medium mb-3 block">Additional Notes (Optional)</label>
+                      <Textarea
+                        placeholder="Is there anything specific you'd like to discuss?"
+                        value={bookingData.notes}
+                        onChange={(e) => setBookingData(prev => ({ ...prev, notes: e.target.value }))}
+                        className="glass-input min-h-[100px]"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
 
               {/* Booking Summary Panel for Step 3 */}
@@ -567,7 +660,7 @@ export const BookSession: React.FC = () => {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-wellness-serene/10 to-wellness-warm/10">
                       <CalendarIcon className="w-5 h-5 text-wellness-serene" />
                       <div>
@@ -577,7 +670,7 @@ export const BookSession: React.FC = () => {
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-wellness-peaceful/10 to-wellness-warm/10">
                       <Clock className="w-5 h-5 text-wellness-peaceful" />
                       <div>
@@ -600,9 +693,9 @@ export const BookSession: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="pt-4 border-t border-white/20">
-                    <Button 
+                    <Button
                       onClick={handleBookingSubmit}
                       disabled={!bookingData.reason}
                       className="w-full btn-hero"
@@ -625,4 +718,4 @@ export const BookSession: React.FC = () => {
       </div>
     </DashboardLayout>
   );
-};
+}

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Bot,
   Send,
@@ -23,6 +24,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import ReactMarkdown from 'react-markdown';
+import { AIRecommendations } from './AIRecommendations';
 
 const mockData = [
   { name: 'Mon', wellness: 65, anxiety: 30, mood: 70 },
@@ -66,26 +68,146 @@ export const AIInterfaceStandalone: React.FC = () => {
   const [isListening, setIsListening] = useState(false);
   const [recognition, setRecognition] = useState<any>(null);
 
+  // Real Data State
+  const [chartData, setChartData] = useState<any[]>(mockData);
+  const [todayScore, setTodayScore] = useState(0);
+  const [scoreStatus, setScoreStatus] = useState({ label: 'Loading...', color: 'bg-gray-100 text-gray-700' });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const today = new Date();
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(today.getDate() - 6);
+
+        // Fetch Journals (Mood)
+        const { data: journals } = await supabase
+          .from('journals')
+          .select('created_at, mood')
+          .eq('user_id', user.id)
+          .gte('created_at', sevenDaysAgo.toISOString());
+
+        // Fetch Stress Assessments (Score)
+        const { data: assessments } = await supabase
+          .from('stress_assessments')
+          .select('created_at, score')
+          .eq('user_id', user.id)
+          .gte('created_at', sevenDaysAgo.toISOString());
+
+        // Process Data
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const processedData = [];
+        let lastScore = 50; // Default start
+
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(sevenDaysAgo);
+          d.setDate(d.getDate() + i);
+          const dateStr = d.toISOString().split('T')[0];
+          const dayName = days[d.getDay()];
+
+          // Filter for this day
+          const dayJournals = journals?.filter(j => j.created_at.startsWith(dateStr)) || [];
+          const dayAssessments = assessments?.filter(a => a.created_at.startsWith(dateStr)) || [];
+
+          // Calculate Mood Score
+          let moodScore = 50;
+          if (dayJournals.length > 0) {
+            const moodMap: any = { 'Great': 100, 'Good': 75, 'Okay': 50, 'Not Good': 25, 'Awful': 0 };
+            const totalMood = dayJournals.reduce((acc, j) => acc + (moodMap[j.mood] || 50), 0);
+            moodScore = totalMood / dayJournals.length;
+          }
+
+          // Calculate Anxiety Score (Inverted: High Score = Low Anxiety = Good Wellness)
+          let anxietyScore = 50;
+          if (dayAssessments.length > 0) {
+            const totalAnxiety = dayAssessments.reduce((acc, a) => {
+              // Max score is 24. Normalize to 0-100. Invert.
+              return acc + (100 - ((a.score / 24) * 100));
+            }, 0);
+            anxietyScore = totalAnxiety / dayAssessments.length;
+          }
+
+          // Wellness Score
+          let dailyScore = lastScore;
+          if (dayJournals.length > 0 && dayAssessments.length > 0) {
+            dailyScore = (moodScore + anxietyScore) / 2;
+          } else if (dayJournals.length > 0) {
+            dailyScore = moodScore;
+          } else if (dayAssessments.length > 0) {
+            dailyScore = anxietyScore;
+          }
+
+          lastScore = dailyScore;
+
+          processedData.push({
+            name: dayName,
+            wellness: Math.round(dailyScore),
+          });
+        }
+
+        setChartData(processedData);
+        const todayVal = processedData[processedData.length - 1].wellness;
+        setTodayScore(todayVal);
+
+        // Set Badge
+        if (todayVal >= 80) setScoreStatus({ label: 'Excellent', color: 'bg-green-100 text-green-700' });
+        else if (todayVal >= 50) setScoreStatus({ label: 'Good', color: 'bg-blue-100 text-blue-700' });
+        else setScoreStatus({ label: 'Needs Attention', color: 'bg-orange-100 text-orange-700' });
+
+      } catch (error) {
+        console.error("Error fetching wellness data:", error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const saveMessage = async (role: 'user' | 'ai', content: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase.from('chat_history').insert({
+        user_id: user.id,
+        role,
+        content
+      });
+    } catch (error) {
+      console.error('Error saving message:', error);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!message.trim()) return;
 
-    const userMessage = { role: 'user', content: message };
+    const userMessageContent = message;
+    const userMessage = { role: 'user', content: userMessageContent };
     setChatMessages(prev => [...prev, userMessage]);
     setMessage('');
     setIsTyping(true);
+
+    // Save user message
+    saveMessage('user', userMessageContent);
 
     try {
       const response = await fetch("http://127.0.0.1:5000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, model: "llama3" }) // model name optional
+        body: JSON.stringify({ message: userMessageContent, model: "llama3" }) // model name optional
       });
 
       if (!response.ok) throw new Error("Server error");
 
       const data = await response.json();
-      const aiResponse = { role: "ai", content: data.reply || "No reply from AI" };
+      const aiContent = data.reply || "No reply from AI";
+      const aiResponse = { role: "ai", content: aiContent };
       setChatMessages(prev => [...prev, aiResponse]);
+
+      // Save AI message
+      saveMessage('ai', aiContent);
 
     } catch (err) {
       console.error(err);
@@ -272,28 +394,8 @@ export const AIInterfaceStandalone: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* AI Insights */}
-          <Card className="glass-card border-0">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-wellness-serene" />
-                AI Insights
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3">
-                {aiInsights.map((insight, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors">
-                    <insight.icon className={`w-5 h-5 ${insight.color}`} />
-                    <div className="flex-1">
-                      <h4 className="font-medium">{insight.title}</h4>
-                      <p className="text-sm text-muted-foreground">{insight.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          {/* AI Recommendations */}
+          <AIRecommendations />
         </motion.div>
 
         {/* Analytics Dashboard */}
@@ -308,7 +410,7 @@ export const AIInterfaceStandalone: React.FC = () => {
             <CardContent>
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={mockData}>
+                  <AreaChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                     <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
                     <YAxis stroke="hsl(var(--muted-foreground))" />
@@ -373,9 +475,9 @@ export const AIInterfaceStandalone: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-center">
-                <div className="text-4xl font-bold text-wellness-calm mb-2">85</div>
-                <Badge variant="secondary" className="bg-green-100 text-green-700">
-                  Excellent
+                <div className="text-4xl font-bold text-wellness-calm mb-2">{todayScore}</div>
+                <Badge variant="secondary" className={scoreStatus.color}>
+                  {scoreStatus.label}
                 </Badge>
                 <p className="text-sm text-muted-foreground mt-2">
                   Keep up the great work!

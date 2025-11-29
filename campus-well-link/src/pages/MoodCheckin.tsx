@@ -1,213 +1,301 @@
 import React, { useState } from 'react';
 import { DashboardLayout } from '@/components/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Heart, CheckCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
+import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+import {
+  Laugh,
+  Smile,
+  Meh,
+  Frown,
+  AlertCircle,
+  Loader2,
+  CheckCircle2,
+  Moon,
+  Activity,
+  ArrowLeft
+} from 'lucide-react';
 
-const emotionTags = [
-  { label: 'Happy', color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' },
-  { label: 'Sad', color: 'bg-blue-100 text-blue-700 hover:bg-blue-200' },
-  { label: 'Stressed', color: 'bg-red-100 text-red-700 hover:bg-red-200' },
-  { label: 'Excited', color: 'bg-green-100 text-green-700 hover:bg-green-200' },
-  { label: 'Anxious', color: 'bg-orange-100 text-orange-700 hover:bg-orange-200' },
-  { label: 'Calm', color: 'bg-purple-100 text-purple-700 hover:bg-purple-200' },
-  { label: 'Overwhelmed', color: 'bg-pink-100 text-pink-700 hover:bg-pink-200' },
-  { label: 'Confident', color: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200' },
+interface MoodOption {
+  value: string;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+  riskLevel: 'Low' | 'Medium' | 'High';
+}
+
+const MOOD_OPTIONS: MoodOption[] = [
+  {
+    value: 'Great',
+    label: 'Great',
+    icon: Laugh,
+    color: 'text-green-500 border-green-500/50 bg-green-500/10',
+    riskLevel: 'Low'
+  },
+  {
+    value: 'Good',
+    label: 'Good',
+    icon: Smile,
+    color: 'text-blue-500 border-blue-500/50 bg-blue-500/10',
+    riskLevel: 'Low'
+  },
+  {
+    value: 'Okay',
+    label: 'Okay',
+    icon: Meh,
+    color: 'text-yellow-500 border-yellow-500/50 bg-yellow-500/10',
+    riskLevel: 'Low'
+  },
+  {
+    value: 'Not Good',
+    label: 'Not Good',
+    icon: Frown,
+    color: 'text-orange-500 border-orange-500/50 bg-orange-500/10',
+    riskLevel: 'Medium'
+  },
+  {
+    value: 'Awful',
+    label: 'Awful',
+    icon: AlertCircle,
+    color: 'text-red-500 border-red-500/50 bg-red-500/10',
+    riskLevel: 'High'
+  },
 ];
 
-const moodLabels = [
-  'Very Low', 'Low', 'Below Average', 'Fair', 'Average', 
-  'Good', 'Very Good', 'Great', 'Excellent', 'Outstanding'
+const FACTORS = [
+  'Academics', 'Sleep', 'Social', 'Family', 'Health', 'Finances', 'Future', 'Work', 'Other'
 ];
 
 export const MoodCheckin: React.FC = () => {
-  const navigate = useNavigate();
   const { toast } = useToast();
-  const [moodLevel, setMoodLevel] = useState([5]);
-  const [selectedEmotions, setSelectedEmotions] = useState<string[]>([]);
-  const [notes, setNotes] = useState('');
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const navigate = useNavigate();
+  const [selectedMood, setSelectedMood] = useState<MoodOption | null>(null);
+  const [note, setNote] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedFactors, setSelectedFactors] = useState<string[]>([]);
+  const [sleepHours, setSleepHours] = useState([7]);
 
-  const handleEmotionToggle = (emotion: string) => {
-    setSelectedEmotions(prev => 
-      prev.includes(emotion) 
-        ? prev.filter(e => e !== emotion)
-        : [...prev, emotion]
+  const toggleFactor = (factor: string) => {
+    setSelectedFactors(prev =>
+      prev.includes(factor)
+        ? prev.filter(f => f !== factor)
+        : [...prev, factor]
     );
   };
 
-  const handleSubmit = () => {
-    // Here you would typically save the mood check-in data
-    setIsSubmitted(true);
-    toast({
-      title: "Mood check-in submitted!",
-      description: "Thank you for sharing your feelings. Your wellness journey matters.",
-    });
-    
-    // Auto-redirect after 3 seconds
-    setTimeout(() => {
-      navigate('/student-dashboard/ai');
-    }, 3000);
-  };
+  const handleSubmit = async () => {
+    if (!selectedMood) {
+      toast({
+        title: "Please select a mood",
+        description: "How are you feeling right now?",
+        variant: "destructive"
+      });
+      return;
+    }
 
-  const getMoodLabel = (value: number) => {
-    return moodLabels[value - 1] || 'Average';
-  };
+    setIsSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
 
-  if (isSubmitted) {
-    return (
-      <DashboardLayout userType="student">
-        <div className="max-w-2xl mx-auto mt-12">
-          <Card className="glass-card border-0 text-center">
-            <CardContent className="pt-12 pb-12">
-              <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-6" />
-              <h2 className="text-2xl font-bold text-wellness-calm mb-4">
-                Thank You!
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                Your mood check-in has been submitted successfully. 
-                Your emotional wellness is important to us.
-              </p>
-              <Button onClick={() => navigate('/student-dashboard/ai')}>
-                Back to AI Assistant
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </DashboardLayout>
-    );
-  }
+      if (!user) {
+        toast({
+          title: "Authentication Error",
+          description: "Please sign in to save your check-in.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Construct rich content
+      let content = `User reported feeling ${selectedMood.value}.`;
+      if (sleepHours[0]) content += `\nSleep: ${sleepHours[0]} hours.`;
+      if (selectedFactors.length > 0) content += `\nFactors: ${selectedFactors.join(', ')}.`;
+      if (note.trim()) content += `\n\nNote: ${note.trim()}`;
+
+      const { error } = await supabase
+        .from('journals')
+        .insert({
+          user_id: user.id,
+          content: content,
+          mood: selectedMood.value,
+          risk_level: selectedMood.riskLevel,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Check-in Saved",
+        description: "Your mood and insights have been recorded.",
+      });
+
+      setTimeout(() => navigate('/student-dashboard'), 1000);
+
+    } catch (error) {
+      console.error('Error saving mood:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save your check-in. Please try again.",
+        variant: "destructive"
+      });
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <DashboardLayout userType="student">
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-8 py-8">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon"
+        <div className="relative">
+          <Button
+            variant="ghost"
             onClick={() => navigate('/student-dashboard/ai')}
-            className="rounded-full"
+            className="absolute left-0 top-0 p-2 md:left-[-2rem]"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-6 h-6" />
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-wellness-calm to-wellness-serene bg-clip-text text-transparent">
-              Mood Check-in
-            </h1>
-            <p className="text-muted-foreground mt-1">
+          <div className="text-center space-y-4">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-wellness-calm to-wellness-serene bg-clip-text text-transparent">
               How are you feeling today?
+            </h1>
+            <p className="text-muted-foreground text-lg">
+              Select the emotion that best represents your current state.
             </p>
           </div>
         </div>
 
-        <Card className="glass-card border-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Heart className="w-5 h-5 text-wellness-warm" />
-              Share Your Current Mood
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-8">
-            {/* Mood Scale Slider */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold">Mood Level</h3>
-                <Badge variant="secondary" className="bg-wellness-calm/10 text-wellness-calm">
-                  {moodLevel[0]}/10 - {getMoodLabel(moodLevel[0])}
-                </Badge>
-              </div>
-              <div className="px-4">
-                <Slider
-                  value={moodLevel}
-                  onValueChange={setMoodLevel}
-                  max={10}
-                  min={1}
-                  step={1}
-                  className="w-full"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                  <span>Very Low</span>
-                  <span>Very High</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Emotion Tags */}
-            <div className="space-y-4">
-              <h3 className="font-semibold">What emotions are you experiencing?</h3>
-              <p className="text-sm text-muted-foreground">
-                Select all that apply (you can choose multiple)
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {emotionTags.map((emotion) => (
-                  <button
-                    key={emotion.label}
-                    onClick={() => handleEmotionToggle(emotion.label)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      selectedEmotions.includes(emotion.label)
-                        ? `${emotion.color} ring-2 ring-offset-2 ring-primary`
-                        : `${emotion.color} opacity-60 hover:opacity-100`
-                    }`}
-                  >
-                    {emotion.label}
-                  </button>
-                ))}
-              </div>
-              {selectedEmotions.length > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Selected: {selectedEmotions.join(', ')}
-                </p>
-              )}
-            </div>
-
-            {/* Notes Section */}
-            <div className="space-y-4">
-              <h3 className="font-semibold">Additional Notes (Optional)</h3>
-              <p className="text-sm text-muted-foreground">
-                Feel free to share more about how you're feeling or what's on your mind
-              </p>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="I'm feeling this way because..."
-                className="min-h-[120px] resize-none"
-                maxLength={500}
-              />
-              <p className="text-xs text-muted-foreground text-right">
-                {notes.length}/500 characters
-              </p>
-            </div>
-
-            {/* Submit Button */}
-            <div className="flex justify-center pt-4">
-              <Button 
-                onClick={handleSubmit}
-                className="px-8 py-3 bg-gradient-primary hover:opacity-90 transition-opacity"
-                size="lg"
+        {/* Mood Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {MOOD_OPTIONS.map((option) => (
+            <motion.div
+              key={option.value}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Card
+                className={`
+                  glass-card cursor-pointer transition-all duration-300 h-full
+                  ${selectedMood?.value === option.value
+                    ? `ring-2 ring-offset-2 ring-offset-background ${option.color}`
+                    : 'hover:bg-white/5 border-transparent'}
+                `}
+                onClick={() => setSelectedMood(option)}
               >
-                Submit Mood Check-in
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                <CardContent className="p-6 flex flex-col items-center justify-center gap-4 text-center h-full">
+                  <option.icon
+                    className={`w-12 h-12 ${selectedMood?.value === option.value ? 'scale-110' : 'opacity-70'} transition-all duration-300`}
+                    style={{ color: selectedMood?.value === option.value ? 'currentColor' : undefined }}
+                  />
+                  <span className={`font-semibold ${selectedMood?.value === option.value ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {option.label}
+                  </span>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
 
-        {/* Supportive Message */}
-        <Card className="glass-card border-0 bg-wellness-calm/5">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground">
-                Remember, it's completely normal to experience a range of emotions. 
-                Your feelings are valid, and seeking support is a sign of strength.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Detailed Input Section - Only shown when mood is selected */}
+        <AnimatePresence>
+          {selectedMood && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              className="space-y-6"
+            >
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Factors Selection - Only for Okay/Not Good/Awful */}
+                {['Okay', 'Not Good', 'Awful'].includes(selectedMood.value) && (
+                  <Card className="glass-card border-wellness-calm/20">
+                    <CardContent className="p-6 space-y-4">
+                      <div className="flex items-center gap-2 text-wellness-calm mb-2">
+                        <Activity className="w-5 h-5" />
+                        <label className="text-lg font-medium">What's impacting you?</label>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {FACTORS.map(factor => (
+                          <Button
+                            key={factor}
+                            variant={selectedFactors.includes(factor) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => toggleFactor(factor)}
+                            className={`rounded-full ${selectedFactors.includes(factor) ? 'bg-wellness-calm hover:bg-wellness-calm/90' : 'hover:border-wellness-calm/50'}`}
+                          >
+                            {factor}
+                          </Button>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Sleep Tracker */}
+                <Card className={`glass-card border-wellness-calm/20 ${!['Okay', 'Not Good', 'Awful'].includes(selectedMood.value) ? 'md:col-span-2' : ''}`}>
+                  <CardContent className="p-6 space-y-6">
+                    <div className="flex items-center justify-between text-wellness-calm">
+                      <div className="flex items-center gap-2">
+                        <Moon className="w-5 h-5" />
+                        <label className="text-lg font-medium">Sleep Quality</label>
+                      </div>
+                      <span className="text-2xl font-bold">{sleepHours[0]}h</span>
+                    </div>
+                    <Slider
+                      value={sleepHours}
+                      onValueChange={setSleepHours}
+                      max={12}
+                      step={0.5}
+                      className="py-4"
+                    />
+                    <p className="text-xs text-muted-foreground text-center">
+                      How many hours did you sleep last night?
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Notes Section */}
+              <Card className="glass-card border-wellness-calm/20">
+                <CardContent className="p-6 space-y-4">
+                  <label className="text-lg font-medium text-wellness-calm block">
+                    Why do you feel this way? (Optional)
+                  </label>
+                  <Textarea
+                    placeholder="Share your thoughts..."
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    className="min-h-[150px] bg-background/50 resize-none focus:ring-wellness-calm"
+                  />
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-end">
+                <Button
+                  size="lg"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                  className="w-full md:w-auto min-w-[200px] bg-gradient-to-r from-wellness-calm to-wellness-serene hover:opacity-90 transition-opacity"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Save Check-in
+                    </>
+                  )}
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </DashboardLayout>
   );

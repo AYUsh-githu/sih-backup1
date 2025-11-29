@@ -1,13 +1,25 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle, Heart, Calendar } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle,
+  Heart,
+  Calendar,
+  ChevronRight,
+  Activity,
+  AlertCircle,
+  Smile,
+  Meh,
+  Frown,
+  Loader2
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const questions = [
   {
@@ -52,144 +64,188 @@ const questions = [
   }
 ];
 
+const OPTION_CONFIG: Record<string, { color: string, icon: any, score: number }> = {
+  "Never": { color: "bg-green-500/10 text-green-600 border-green-200 hover:bg-green-500/20", icon: Smile, score: 0 },
+  "Sometimes": { color: "bg-yellow-500/10 text-yellow-600 border-yellow-200 hover:bg-yellow-500/20", icon: Meh, score: 1 },
+  "Often": { color: "bg-orange-500/10 text-orange-600 border-orange-200 hover:bg-orange-500/20", icon: Frown, score: 2 },
+  "Always": { color: "bg-red-500/10 text-red-600 border-red-200 hover:bg-red-500/20", icon: AlertCircle, score: 3 }
+};
+
 export const StressAssessment: React.FC = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [started, setStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [stressLevel, setStressLevel] = useState<'Low' | 'Moderate' | 'High'>('Low');
 
   const progress = ((currentQuestion + 1) / questions.length) * 100;
 
-  const handleAnswerChange = (value: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questions[currentQuestion].id]: value
-    }));
-  };
+  const handleAnswer = async (option: string) => {
+    const newAnswers = { ...answers, [questions[currentQuestion].id]: option };
+    setAnswers(newAnswers);
 
-  const handleNext = () => {
     if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
+      setTimeout(() => setCurrentQuestion(prev => prev + 1), 300); // Small delay for visual feedback
+    } else {
+      await handleSubmit(newAnswers);
     }
   };
 
-  const handlePrevious = () => {
-    if (currentQuestion > 0) {
-      setCurrentQuestion(prev => prev - 1);
-    }
+  const calculateScore = (finalAnswers: Record<number, string>) => {
+    return Object.values(finalAnswers).reduce((sum, answer) => {
+      return sum + (OPTION_CONFIG[answer]?.score || 0);
+    }, 0);
   };
 
-  const calculateStressLevel = () => {
-    const scores = Object.values(answers).map(answer => {
-      switch (answer) {
-        case 'Never': return 0;
-        case 'Sometimes': return 1;
-        case 'Often': return 2;
-        case 'Always': return 3;
-        default: return 0;
-      }
-    });
+  const handleSubmit = async (finalAnswers: Record<number, string>) => {
+    setIsSaving(true);
+    const totalScore = calculateScore(finalAnswers);
 
-    const totalScore = scores.reduce((sum, score) => sum + score, 0);
-    const maxScore = questions.length * 3;
-    const percentage = (totalScore / maxScore) * 100;
+    let level: 'Low' | 'Moderate' | 'High' = 'Low';
+    if (totalScore > 10) level = 'High';
+    else if (totalScore > 5) level = 'Moderate';
 
-    if (percentage < 30) return 'Low';
-    if (percentage < 60) return 'Moderate';
-    return 'High';
-  };
-
-  const handleSubmit = () => {
-    const level = calculateStressLevel();
     setStressLevel(level);
-    setIsSubmitted(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        await supabase.from('stress_assessments').insert({
+          user_id: user.id,
+          score: totalScore,
+          risk_level: level,
+          answers: finalAnswers
+        });
+      }
+
+      setIsSubmitted(true);
+    } catch (error) {
+      console.error('Error saving assessment:', error);
+      toast({
+        title: "Error saving results",
+        description: "We couldn't save your results, but here they are.",
+        variant: "destructive"
+      });
+      setIsSubmitted(true); // Show results anyway
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const getStressMessage = () => {
+  const getResultContent = () => {
     switch (stressLevel) {
       case 'Low':
         return {
-          message: "Your stress levels appear to be manageable. Keep up the good work with your current coping strategies!",
+          title: "Doing Well!",
+          message: "Your stress levels appear to be manageable. Keep up your healthy habits!",
           color: "text-green-600",
-          bgColor: "bg-green-50",
-          borderColor: "border-green-200"
+          bg: "bg-green-100",
+          icon: Smile
         };
       case 'Moderate':
         return {
-          message: "You're experiencing moderate stress levels. Consider implementing some stress-reduction techniques in your daily routine.",
+          title: "Moderate Stress",
+          message: "You're carrying some stress. Consider taking small breaks and practicing mindfulness.",
           color: "text-yellow-600",
-          bgColor: "bg-yellow-50",
-          borderColor: "border-yellow-200"
+          bg: "bg-yellow-100",
+          icon: Meh
         };
       case 'High':
         return {
-          message: "Your stress levels are quite high. It would be beneficial to speak with a counselor and explore stress management strategies.",
+          title: "High Stress",
+          message: "Your stress levels are high. It's important to prioritize self-care and seek support.",
           color: "text-red-600",
-          bgColor: "bg-red-50",
-          borderColor: "border-red-200"
+          bg: "bg-red-100",
+          icon: AlertCircle
         };
     }
   };
 
-  if (isSubmitted) {
-    const stressInfo = getStressMessage();
-    
+  if (!started) {
     return (
       <DashboardLayout userType="student">
-        <div className="space-y-6">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/student-dashboard/ai')}
-              className="p-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold">Assessment Complete</h1>
-              <p className="text-muted-foreground">Your stress assessment results</p>
+        <div className="max-w-2xl mx-auto py-12 px-4">
+          <Card className="glass-card border-wellness-calm/20 text-center p-8 space-y-8">
+            <div className="w-20 h-20 bg-wellness-calm/10 rounded-full flex items-center justify-center mx-auto animate-pulse">
+              <Activity className="w-10 h-10 text-wellness-calm" />
             </div>
-          </div>
-
-          <Card className="glass-card border-0">
-            <CardContent className="p-8 text-center space-y-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                <CheckCircle className="w-8 h-8 text-green-600" />
-              </div>
-              
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Your Stress Level</h2>
-                <Badge 
-                  variant="secondary" 
-                  className={`text-lg px-4 py-2 ${stressInfo.color} ${stressInfo.bgColor} ${stressInfo.borderColor} border`}
-                >
-                  {stressLevel}
-                </Badge>
-              </div>
-
-              <p className={`text-lg ${stressInfo.color} max-w-md mx-auto`}>
-                {stressInfo.message}
+            <div className="space-y-4">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-wellness-calm to-wellness-serene bg-clip-text text-transparent">
+                Stress Assessment
+              </h1>
+              <p className="text-muted-foreground text-lg max-w-md mx-auto">
+                Let's check in on your stress levels. This quick assessment helps us find the best support and resources for you.
               </p>
+            </div>
+            <Button
+              size="lg"
+              onClick={() => setStarted(true)}
+              className="bg-gradient-to-r from-wellness-calm to-wellness-serene text-lg px-8 py-6 h-auto rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105"
+            >
+              Start Assessment <ChevronRight className="ml-2 w-5 h-5" />
+            </Button>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-                <Button 
+  if (isSubmitted) {
+    const result = getResultContent();
+    const ResultIcon = result.icon;
+
+    return (
+      <DashboardLayout userType="student">
+        <div className="max-w-2xl mx-auto py-12 px-4">
+          <Card className="glass-card border-0 overflow-hidden">
+            <CardContent className="p-8 text-center space-y-8">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className={`w-24 h-24 ${result.bg} rounded-full flex items-center justify-center mx-auto`}
+              >
+                <ResultIcon className={`w-12 h-12 ${result.color}`} />
+              </motion.div>
+
+              <div className="space-y-2">
+                <h2 className={`text-3xl font-bold ${result.color}`}>{result.title}</h2>
+                <p className="text-xl text-muted-foreground">{result.message}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                <Button
                   variant="outline"
                   onClick={() => navigate('/self-care-hub')}
-                  className="flex items-center gap-2"
+                  className="h-auto py-4 border-wellness-calm/20 hover:bg-wellness-calm/5"
                 >
-                  <Heart className="w-4 h-4" />
-                  Explore Self-Care
+                  <div className="flex flex-col items-center gap-2">
+                    <Heart className="w-6 h-6 text-wellness-calm" />
+                    <span>Breathing Exercises</span>
+                  </div>
                 </Button>
-                <Button 
+                <Button
                   variant="outline"
                   onClick={() => navigate('/student-dashboard/booking')}
-                  className="flex items-center gap-2"
+                  className={`h-auto py-4 ${stressLevel === 'High' ? 'border-red-200 bg-red-50 hover:bg-red-100' : 'border-wellness-calm/20 hover:bg-wellness-calm/5'}`}
                 >
-                  <Calendar className="w-4 h-4" />
-                  Book a Session
+                  <div className="flex flex-col items-center gap-2">
+                    <Calendar className={`w-6 h-6 ${stressLevel === 'High' ? 'text-red-500' : 'text-wellness-calm'}`} />
+                    <span>Talk to a Counselor</span>
+                  </div>
                 </Button>
               </div>
+
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/student-dashboard')}
+                className="mt-4"
+              >
+                Back to Dashboard
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -199,82 +255,63 @@ export const StressAssessment: React.FC = () => {
 
   return (
     <DashboardLayout userType="student">
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/student-dashboard/ai')}
-            className="p-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Stress Assessment</h1>
-            <p className="text-muted-foreground">Answer a few quick questions to check your stress levels.</p>
-          </div>
-        </div>
-
+      <div className="max-w-2xl mx-auto py-8 px-4 space-y-8">
+        {/* Header & Progress */}
         <div className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Question {currentQuestion + 1} of {questions.length}</span>
-              <span>{Math.round(progress)}% Complete</span>
-            </div>
-            <Progress value={progress} className="h-2" />
+          <div className="flex items-center justify-between">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/student-dashboard/ai')}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <span className="text-sm font-medium text-muted-foreground">
+              Question {currentQuestion + 1} of {questions.length}
+            </span>
           </div>
-
-          <Card className="glass-card border-0">
-            <CardHeader>
-              <CardTitle className="text-lg">
-                {questions[currentQuestion].question}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <RadioGroup
-                value={answers[questions[currentQuestion].id] || ""}
-                onValueChange={handleAnswerChange}
-                className="space-y-3"
-              >
-                {questions[currentQuestion].options.map((option) => (
-                  <div key={option} className="flex items-center space-x-2">
-                    <RadioGroupItem value={option} id={option} />
-                    <Label htmlFor={option} className="flex-1 cursor-pointer">
-                      {option}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-
-              <div className="flex justify-between pt-4">
-                <Button
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={currentQuestion === 0}
-                >
-                  Previous
-                </Button>
-                
-                {currentQuestion === questions.length - 1 ? (
-                  <Button
-                    onClick={handleSubmit}
-                    disabled={!answers[questions[currentQuestion].id]}
-                    className="bg-gradient-primary"
-                  >
-                    Submit Assessment
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleNext}
-                    disabled={!answers[questions[currentQuestion].id]}
-                    className="bg-gradient-primary"
-                  >
-                    Next
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <Progress value={progress} className="h-2 bg-secondary" />
         </div>
+
+        {/* Question Card */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentQuestion}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Card className="glass-card border-wellness-calm/20 min-h-[400px] flex flex-col justify-center">
+              <CardContent className="p-8 space-y-8">
+                <h2 className="text-2xl md:text-3xl font-semibold text-center leading-tight">
+                  {questions[currentQuestion].question}
+                </h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {questions[currentQuestion].options.map((option) => {
+                    const config = OPTION_CONFIG[option];
+                    const OptionIcon = config.icon;
+
+                    return (
+                      <button
+                        key={option}
+                        onClick={() => handleAnswer(option)}
+                        disabled={isSaving}
+                        className={`
+                          p-4 rounded-xl border-2 transition-all duration-200 flex items-center gap-4
+                          ${config.color}
+                          ${answers[questions[currentQuestion].id] === option ? 'ring-2 ring-offset-2 ring-wellness-calm' : 'border-transparent'}
+                        `}
+                      >
+                        <div className="p-2 bg-white/50 rounded-full">
+                          <OptionIcon className="w-6 h-6" />
+                        </div>
+                        <span className="font-medium text-lg">{option}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </AnimatePresence>
       </div>
     </DashboardLayout>
   );

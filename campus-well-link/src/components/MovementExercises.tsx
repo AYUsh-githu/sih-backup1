@@ -4,9 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Play, 
-  X, 
+import {
+  Play,
+  X,
   ChevronRight,
   RotateCcw,
   Sparkles,
@@ -18,6 +18,7 @@ interface Exercise {
   name: string;
   description: string;
   duration: string;
+  durationSeconds: number;
   icon: string;
   steps: string[];
   benefits: string;
@@ -29,6 +30,7 @@ const exercises: Exercise[] = [
     name: 'Neck Stretch',
     description: 'Loosen up your neck muscles and release tension.',
     duration: '30 seconds',
+    durationSeconds: 30,
     icon: '🧘',
     benefits: 'Reduces neck tension and improves flexibility',
     steps: [
@@ -45,6 +47,7 @@ const exercises: Exercise[] = [
     name: 'Shoulder Roll',
     description: 'Release shoulder tension and improve posture.',
     duration: '30 seconds',
+    durationSeconds: 30,
     icon: '💪',
     benefits: 'Relieves shoulder stiffness and promotes better posture',
     steps: [
@@ -61,6 +64,7 @@ const exercises: Exercise[] = [
     name: 'Wrist Rotation',
     description: 'Perfect for those long study or typing sessions.',
     duration: '30 seconds',
+    durationSeconds: 30,
     icon: '✋',
     benefits: 'Prevents wrist strain and improves circulation',
     steps: [
@@ -77,6 +81,7 @@ const exercises: Exercise[] = [
     name: 'Torso Twist',
     description: 'Stretch your spine and energize your body.',
     duration: '45 seconds',
+    durationSeconds: 45,
     icon: '🌀',
     benefits: 'Increases spinal mobility and core strength',
     steps: [
@@ -94,6 +99,7 @@ const exercises: Exercise[] = [
     name: 'Leg Stretch',
     description: 'Improve circulation and reduce lower body tension.',
     duration: '1 minute',
+    durationSeconds: 60,
     icon: '🦵',
     benefits: 'Enhances flexibility and blood flow to legs',
     steps: [
@@ -111,6 +117,7 @@ const exercises: Exercise[] = [
     name: 'Deep Squat',
     description: 'Build strength and release hip tension.',
     duration: '45 seconds',
+    durationSeconds: 45,
     icon: '🏋️',
     benefits: 'Strengthens legs and improves hip mobility',
     steps: [
@@ -128,9 +135,10 @@ const exercises: Exercise[] = [
 
 interface MovementExercisesProps {
   onBack?: () => void;
+  onComplete?: (activityName: string, durationMinutes: number) => void;
 }
 
-export const MovementExercises: React.FC<MovementExercisesProps> = ({ onBack }) => {
+export const MovementExercises: React.FC<MovementExercisesProps> = ({ onBack, onComplete }) => {
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -166,15 +174,26 @@ export const MovementExercises: React.FC<MovementExercisesProps> = ({ onBack }) 
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <div className="inline-flex items-center gap-2 mb-4 px-4 py-2 bg-white/50 dark:bg-white/10 rounded-full backdrop-blur-sm">
-            <Sparkles className="w-5 h-5 text-purple-500" />
-            <span className="text-sm font-medium">Movement & Wellness</span>
+          <div className="relative mb-8">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              className="absolute left-0 top-1/2 -translate-y-1/2 hover:bg-white/20"
+            >
+              <ChevronRight className="w-4 h-4 mr-1 rotate-180" />
+              Back
+            </Button>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-white/10 rounded-full backdrop-blur-sm">
+              <Sparkles className="w-5 h-5 text-purple-500" />
+              <span className="text-sm font-medium">Movement & Wellness</span>
+            </div>
           </div>
-          
+
           <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-sky-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
             Let's Get Moving!
           </h1>
-          
+
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Take a break from studying with these gentle exercises. Just a few minutes can boost your energy, improve focus, and reduce stress.
           </p>
@@ -196,11 +215,11 @@ export const MovementExercises: React.FC<MovementExercisesProps> = ({ onBack }) 
                   {/* Animated Icon */}
                   <motion.div
                     className="text-6xl mb-4"
-                    animate={{ 
+                    animate={{
                       rotate: [0, 5, -5, 0],
                       scale: [1, 1.1, 1]
                     }}
-                    transition={{ 
+                    transition={{
                       duration: 2,
                       repeat: Infinity,
                       repeatDelay: 3
@@ -208,18 +227,18 @@ export const MovementExercises: React.FC<MovementExercisesProps> = ({ onBack }) 
                   >
                     {exercise.icon}
                   </motion.div>
-                  
+
                   <CardTitle className="text-2xl font-bold mb-2 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
                     {exercise.name}
                   </CardTitle>
-                  
+
                   <CardDescription className="text-base">
                     {exercise.description}
                   </CardDescription>
 
                   {/* Duration Badge */}
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className="absolute top-4 right-4 bg-gradient-to-r from-sky-500 to-purple-500 text-white border-0"
                   >
                     <Timer className="w-3 h-3 mr-1" />
@@ -317,11 +336,10 @@ export const MovementExercises: React.FC<MovementExercisesProps> = ({ onBack }) 
                       {selectedExercise.steps.map((step, idx) => (
                         <div
                           key={idx}
-                          className={`text-sm p-2 rounded ${
-                            idx === currentStep
-                              ? 'bg-purple-100 dark:bg-purple-900/30 font-medium'
-                              : 'text-muted-foreground'
-                          }`}
+                          className={`text-sm p-2 rounded ${idx === currentStep
+                            ? 'bg-purple-100 dark:bg-purple-900/30 font-medium'
+                            : 'text-muted-foreground'
+                            }`}
                         >
                           {idx + 1}. {step}
                         </div>
@@ -339,7 +357,7 @@ export const MovementExercises: React.FC<MovementExercisesProps> = ({ onBack }) 
                     >
                       Previous
                     </Button>
-                    
+
                     {currentStep < selectedExercise.steps.length - 1 ? (
                       <Button
                         onClick={handleNextStep}
@@ -350,7 +368,10 @@ export const MovementExercises: React.FC<MovementExercisesProps> = ({ onBack }) 
                       </Button>
                     ) : (
                       <Button
-                        onClick={handleCloseModal}
+                        onClick={() => {
+                          if (onComplete) onComplete(selectedExercise.name, selectedExercise.durationSeconds / 60);
+                          handleCloseModal();
+                        }}
                         className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
                       >
                         Complete

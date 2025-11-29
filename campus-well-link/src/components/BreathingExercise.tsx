@@ -8,9 +8,10 @@ interface BreathingExerciseProps {
   isOpen: boolean;
   onClose: () => void;
   duration?: number; // Optional duration in seconds
+  onComplete?: (durationMinutes: number) => void;
 }
 
-export const BreathingExercise: React.FC<BreathingExerciseProps> = ({ isOpen, onClose, duration = 60 }) => {
+export const BreathingExercise: React.FC<BreathingExerciseProps> = ({ isOpen, onClose, duration = 60, onComplete }) => {
   const [isActive, setIsActive] = useState(false);
   const [timeLeft, setTimeLeft] = useState(duration);
   const [currentPhase, setCurrentPhase] = useState<'inhale' | 'hold' | 'exhale' | 'rest'>('inhale');
@@ -43,7 +44,13 @@ export const BreathingExercise: React.FC<BreathingExerciseProps> = ({ isOpen, on
   useEffect(() => {
     if (isActive && timeLeft > 0) {
       intervalRef.current = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            if (onComplete) onComplete(selectedDuration / 60);
+            return 0;
+          }
+          return prev - 1;
+        });
       }, 1000);
     } else {
       if (intervalRef.current) {
@@ -56,7 +63,7 @@ export const BreathingExercise: React.FC<BreathingExerciseProps> = ({ isOpen, on
         clearInterval(intervalRef.current);
       }
     };
-  }, [isActive, timeLeft]);
+  }, [isActive, timeLeft, onComplete, selectedDuration]);
 
   useEffect(() => {
     if (isActive) {
@@ -82,12 +89,12 @@ export const BreathingExercise: React.FC<BreathingExerciseProps> = ({ isOpen, on
     breathingIntervalRef.current = setInterval(() => {
       const currentPhaseKey = phases[phaseIndex];
       const phaseDuration = breathingPattern[currentPhaseKey];
-      
+
       setCurrentPhase(currentPhaseKey);
       setCycleProgress((phaseTime / phaseDuration) * 100);
-      
+
       phaseTime += 0.1;
-      
+
       if (phaseTime >= phaseDuration) {
         phaseTime = 0;
         phaseIndex = (phaseIndex + 1) % phases.length;
@@ -140,16 +147,16 @@ export const BreathingExercise: React.FC<BreathingExerciseProps> = ({ isOpen, on
       >
         <Card className="w-full max-w-md mx-auto bg-gradient-to-br from-card/95 to-card/90 backdrop-blur-xl border border-white/10 shadow-2xl p-8 rounded-3xl">
           <div className="flex justify-between items-center mb-8">
-            <motion.h2 
+            <motion.h2
               className="text-2xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-indigo-400 bg-clip-text text-transparent"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
             >
               Deep Breathing
             </motion.h2>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onClose}
               className="h-8 w-8 p-0 hover:bg-white/10 rounded-full"
             >
@@ -203,7 +210,7 @@ export const BreathingExercise: React.FC<BreathingExerciseProps> = ({ isOpen, on
               >
                 {/* Timer Display */}
                 <div className="text-center mb-8">
-                  <motion.div 
+                  <motion.div
                     className="text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2"
                     key={timeLeft}
                     initial={{ scale: 1.1 }}
@@ -212,7 +219,7 @@ export const BreathingExercise: React.FC<BreathingExerciseProps> = ({ isOpen, on
                     {formatTime(timeLeft)}
                   </motion.div>
                   {timeLeft === 0 && (
-                    <motion.p 
+                    <motion.p
                       className="text-purple-400 font-medium"
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -230,8 +237,8 @@ export const BreathingExercise: React.FC<BreathingExerciseProps> = ({ isOpen, on
                       className="absolute w-48 h-48 rounded-full bg-gradient-to-br from-blue-400 via-purple-400 to-indigo-400 shadow-2xl"
                       animate={{
                         scale: getCircleScale(),
-                        boxShadow: currentPhase === 'inhale' 
-                          ? '0 0 60px rgba(147, 51, 234, 0.6)' 
+                        boxShadow: currentPhase === 'inhale'
+                          ? '0 0 60px rgba(147, 51, 234, 0.6)'
                           : '0 0 30px rgba(59, 130, 246, 0.4)'
                       }}
                       transition={{
@@ -240,21 +247,21 @@ export const BreathingExercise: React.FC<BreathingExerciseProps> = ({ isOpen, on
                       }}
                     >
                       <div className="w-full h-full rounded-full bg-gradient-to-br from-white/20 to-transparent backdrop-blur-sm flex items-center justify-center">
-                        <motion.div 
+                        <motion.div
                           className="w-24 h-24 rounded-full bg-white/30 backdrop-blur-md"
                           animate={{ opacity: [0.3, 0.6, 0.3] }}
                           transition={{ duration: 2, repeat: Infinity }}
                         />
                       </div>
                     </motion.div>
-                    
+
                     {/* Outer rings */}
-                    <motion.div 
+                    <motion.div
                       className="absolute w-56 h-56 rounded-full border-2 border-purple-400/30"
                       animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.1, 0.3] }}
                       transition={{ duration: 4, repeat: Infinity }}
                     />
-                    <motion.div 
+                    <motion.div
                       className="absolute w-64 h-64 rounded-full border border-blue-400/20"
                       animate={{ scale: [1, 1.15, 1], opacity: [0.2, 0.05, 0.2] }}
                       transition={{ duration: 6, repeat: Infinity }}
@@ -264,7 +271,7 @@ export const BreathingExercise: React.FC<BreathingExerciseProps> = ({ isOpen, on
 
                 {/* Phase Text */}
                 <AnimatePresence mode="wait">
-                  <motion.div 
+                  <motion.div
                     key={currentPhase}
                     className="text-center mb-8"
                     initial={{ opacity: 0, y: 10 }}
@@ -293,7 +300,7 @@ export const BreathingExercise: React.FC<BreathingExerciseProps> = ({ isOpen, on
                       {isActive ? 'Pause' : 'Start'}
                     </Button>
                   </motion.div>
-                  
+
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Button
                       onClick={resetExercise}
@@ -307,7 +314,7 @@ export const BreathingExercise: React.FC<BreathingExerciseProps> = ({ isOpen, on
                 </div>
 
                 {/* Instructions */}
-                <motion.div 
+                <motion.div
                   className="mt-8 p-4 rounded-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-purple-400/20"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}

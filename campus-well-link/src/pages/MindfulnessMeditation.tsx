@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -67,6 +68,7 @@ export const MindfulnessMeditation: React.FC = () => {
         setTimeRemaining(prev => {
           if (prev <= 1) {
             setIsSessionActive(false);
+            logActivity();
             return 0;
           }
           return prev - 1;
@@ -86,7 +88,7 @@ export const MindfulnessMeditation: React.FC = () => {
       });
 
       const elapsed = totalDuration - timeRemaining;
-      
+
       if (elapsed >= stepTime && currentStep < meditationSteps.length - 1) {
         setCurrentStep(prev => prev + 1);
       }
@@ -108,6 +110,29 @@ export const MindfulnessMeditation: React.FC = () => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const logActivity = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await fetch('/api/activities/log', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          activity_type: 'mindfulness',
+          title: 'Completed Mindfulness Session',
+          details: { duration: totalDuration }
+        })
+      });
+    } catch (error) {
+      console.error('Failed to log activity:', error);
+    }
   };
 
   return (
@@ -162,7 +187,7 @@ export const MindfulnessMeditation: React.FC = () => {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Return to Resources
             </Button>
-            
+
             <motion.h1
               className="text-5xl font-bold bg-gradient-to-r from-wellness-calm via-wellness-serene to-wellness-calm bg-clip-text text-transparent"
               initial={{ opacity: 0, y: -20 }}
@@ -171,7 +196,7 @@ export const MindfulnessMeditation: React.FC = () => {
             >
               Mindfulness Meditation for Beginners
             </motion.h1>
-            
+
             <motion.p
               className="text-xl text-muted-foreground max-w-2xl mx-auto"
               initial={{ opacity: 0 }}
@@ -211,7 +236,7 @@ export const MindfulnessMeditation: React.FC = () => {
                         }}
                         transition={{ duration: 4, ease: "easeInOut" }}
                       />
-                      
+
                       {/* Meditation Avatar */}
                       <div className="relative z-10 text-center">
                         <motion.div
@@ -320,18 +345,16 @@ export const MindfulnessMeditation: React.FC = () => {
                           x: isSessionActive && index === currentStep ? 0 : -10,
                         }}
                         transition={{ duration: 0.5 }}
-                        className={`p-6 rounded-xl border-2 transition-all ${
-                          isSessionActive && index === currentStep
+                        className={`p-6 rounded-xl border-2 transition-all ${isSessionActive && index === currentStep
                             ? 'border-wellness-calm bg-wellness-calm/10'
                             : 'border-border/50 bg-card/50'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start gap-4">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                            isSessionActive && index === currentStep
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${isSessionActive && index === currentStep
                               ? 'bg-wellness-calm text-white'
                               : 'bg-muted text-muted-foreground'
-                          }`}>
+                            }`}>
                             {index + 1}
                           </div>
                           <div className="flex-1">

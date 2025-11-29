@@ -35,6 +35,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     },
   });
 
+  // Sync content updates from parent (e.g. clearing the editor)
+  React.useEffect(() => {
+    if (editor && content !== editor.getHTML()) {
+      editor.commands.setContent(content);
+    }
+  }, [content, editor]);
+
   if (!editor) {
     return null;
   }
@@ -55,7 +62,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         >
           <Bold className="w-4 h-4" />
         </Button>
-        
+
         <Button
           type="button"
           variant="ghost"
@@ -68,7 +75,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         >
           <Italic className="w-4 h-4" />
         </Button>
-        
+
         <Button
           type="button"
           variant="ghost"
@@ -81,9 +88,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         >
           <UnderlineIcon className="w-4 h-4" />
         </Button>
-        
+
         <div className="w-px h-6 bg-border mx-1" />
-        
+
         <Button
           type="button"
           variant="ghost"
@@ -96,7 +103,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         >
           <List className="w-4 h-4" />
         </Button>
-        
+
         <Button
           type="button"
           variant="ghost"
@@ -109,9 +116,9 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         >
           <ListOrdered className="w-4 h-4" />
         </Button>
-        
+
         <div className="w-px h-6 bg-border mx-1" />
-        
+
         <Button
           type="button"
           variant="ghost"
@@ -122,7 +129,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         >
           <Undo className="w-4 h-4" />
         </Button>
-        
+
         <Button
           type="button"
           variant="ghost"
@@ -134,10 +141,10 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           <Redo className="w-4 h-4" />
         </Button>
       </div>
-      
+
       {/* Editor Content */}
-      <EditorContent 
-        editor={editor} 
+      <EditorContent
+        editor={editor}
         className="rich-text-editor"
         style={{ minHeight }}
       />

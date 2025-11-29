@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Users, 
-  ClipboardList, 
-  BarChart3, 
-  AlertTriangle, 
+import {
+  Users,
+  ClipboardList,
+  BarChart3,
+  AlertTriangle,
   TrendingUp,
   Calendar,
   CheckCircle,
@@ -20,18 +21,48 @@ import { ShimmerCard } from '@/components/LoadingSpinner';
 export const AdminDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    activeSessions: 0,
+    highRiskCases: 0
+  });
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1500);
-    return () => clearTimeout(timer);
-  }, []);
+    const fetchStats = async () => {
+      try {
+        // Fetch total students
+        const { count: studentsCount } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('role', 'student');
 
-  const stats = [
-    { title: 'Total Students', value: '1,234', change: '+12%', icon: Users, color: 'text-blue-600' },
-    { title: 'Active Sessions', value: '89', change: '+5%', icon: Calendar, color: 'text-green-600' },
-    { title: 'Pending Requests', value: '23', change: '-8%', icon: Clock, color: 'text-orange-600' },
-    { title: 'High-Risk Cases', value: '7', change: '+2', icon: AlertTriangle, color: 'text-red-600' },
-  ];
+        // Fetch active sessions (pending or confirmed)
+        const { count: sessionsCount } = await supabase
+          .from('sessions')
+          .select('*', { count: 'exact', head: true })
+          .in('status', ['pending', 'confirmed']);
+
+        // Fetch high risk cases (unresolved high severity alerts)
+        const { count: alertsCount } = await supabase
+          .from('alerts')
+          .select('*', { count: 'exact', head: true })
+          .eq('severity', 'high')
+          .eq('is_resolved', false);
+
+        setStats({
+          totalStudents: studentsCount || 0,
+          activeSessions: sessionsCount || 0,
+          highRiskCases: alertsCount || 0
+        });
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   const recentAlerts = [
     { id: 1, student: 'Student A', severity: 'high', message: 'Screening test indicates high stress levels', time: '10 min ago' },
@@ -81,25 +112,61 @@ export const AdminDashboard: React.FC = () => {
 
         {/* Stats Grid */}
         <div className="grid md:grid-cols-4 gap-6">
-          {stats.map((stat, index) => (
-            <Card 
-              key={stat.title} 
-              className="glass-card border-0 tilt-card hover:shadow-2xl transition-all duration-500"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-                <stat.icon className={`h-5 w-5 ${stat.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-3xl font-bold ${stat.color} mb-1`}>{stat.value}</div>
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" />
-                  {stat.change} from last month
-                </p>
-              </CardContent>
-            </Card>
-          ))}
+          <Card className="glass-card border-0 tilt-card hover:shadow-2xl transition-all duration-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+              <Users className="h-5 w-5 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-blue-600 mb-1">{stats.totalStudents}</div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <TrendingUp className="h-3 w-3" />
+                +12% from last month
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card border-0 tilt-card hover:shadow-2xl transition-all duration-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Sessions</CardTitle>
+              <Calendar className="h-5 w-5 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-green-600 mb-1">{stats.activeSessions}</div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <TrendingUp className="h-3 w-3" />
+                +5% from last week
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card border-0 tilt-card hover:shadow-2xl transition-all duration-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+              <Clock className="h-5 w-5 text-orange-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-orange-600 mb-1">23</div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <TrendingUp className="h-3 w-3" />
+                -8% from last week
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card border-0 tilt-card hover:shadow-2xl transition-all duration-500">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">High-Risk Cases</CardTitle>
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-red-600 mb-1">{stats.highRiskCases}</div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <TrendingUp className="h-3 w-3" />
+                +2 from last week
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Main Content Grid */}
@@ -117,14 +184,13 @@ export const AdminDashboard: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               {recentAlerts.map((alert) => (
-                <div 
-                  key={alert.id} 
+                <div
+                  key={alert.id}
                   className="flex items-start gap-3 p-4 rounded-lg hover:bg-white/20 transition-colors duration-300 border border-white/10"
                 >
-                  <div className={`w-3 h-3 rounded-full mt-2 ${
-                    alert.severity === 'high' ? 'bg-red-500' :
+                  <div className={`w-3 h-3 rounded-full mt-2 ${alert.severity === 'high' ? 'bg-red-500' :
                     alert.severity === 'medium' ? 'bg-orange-500' : 'bg-yellow-500'
-                  } animate-pulse-gentle`} />
+                    } animate-pulse-gentle`} />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <p className="font-medium text-sm">{alert.student}</p>
@@ -156,8 +222,8 @@ export const AdminDashboard: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               {upcomingSessions.map((session, index) => (
-                <div 
-                  key={index} 
+                <div
+                  key={index}
                   className="flex items-center gap-3 p-4 rounded-lg hover:bg-white/20 transition-colors duration-300 border border-white/10"
                 >
                   <div className="text-sm font-mono text-wellness-calm font-medium">
@@ -175,16 +241,15 @@ export const AdminDashboard: React.FC = () => {
                     ) : (
                       <XCircle className="w-4 h-4 text-red-500" />
                     )}
-                    <span className={`text-xs font-medium ${
-                      session.status === 'confirmed' ? 'text-green-600' :
+                    <span className={`text-xs font-medium ${session.status === 'confirmed' ? 'text-green-600' :
                       session.status === 'pending' ? 'text-orange-600' : 'text-red-600'
-                    }`}>
+                      }`}>
                       {session.status}
                     </span>
                   </div>
                 </div>
               ))}
-              <Button className="w-full btn-glass">
+              <Button className="w-full btn-glass" onClick={() => navigate('/admin/calendar')}>
                 View Full Calendar
               </Button>
             </CardContent>

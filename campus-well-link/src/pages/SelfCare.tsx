@@ -4,12 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Heart, 
-  Brain, 
-  Moon, 
-  Zap, 
-  Flower, 
+import {
+  Heart,
+  Brain,
+  Moon,
+  Zap,
+  Flower,
   Wind,
   Play,
   Pause,
@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { ShimmerCard } from '@/components/LoadingSpinner';
 import { MovementExercises } from '@/components/MovementExercises';
+import { MeditationHub } from '@/components/MeditationHub';
 
 interface Activity {
   id: string;
@@ -156,13 +157,18 @@ export const SelfCare: React.FC = () => {
     }
   };
 
-  const filteredActivities = selectedCategory === 'all' 
-    ? activities 
+  const filteredActivities = selectedCategory === 'all'
+    ? activities
     : activities.filter(activity => activity.category === selectedCategory);
 
   // Show Movement Exercises component when movement category is selected
   if (selectedCategory === 'movement') {
-    return <MovementExercises />;
+    return <MovementExercises onBack={() => setSelectedCategory('all')} />;
+  }
+
+  // Show Meditation Hub when meditation category is selected
+  if (selectedCategory === 'meditation') {
+    return <MeditationHub onBack={() => setSelectedCategory('all')} />;
   }
 
   const startActivity = (activity: Activity) => {
@@ -221,7 +227,7 @@ export const SelfCare: React.FC = () => {
           <p className="text-xl text-muted-foreground mb-6">
             Take a moment for yourself with guided wellness activities
           </p>
-          
+
           {/* Daily Progress */}
           <div className="max-w-md mx-auto space-y-3">
             <div className="flex justify-between text-sm">
@@ -230,8 +236,8 @@ export const SelfCare: React.FC = () => {
             </div>
             <Progress value={progressPercentage} className="h-3" />
             <p className="text-sm text-muted-foreground">
-              {completedToday >= dailyGoal 
-                ? "🎉 Goal achieved! Keep up the great work!" 
+              {completedToday >= dailyGoal
+                ? "🎉 Goal achieved! Keep up the great work!"
                 : `${dailyGoal - completedToday} more activities to reach your daily goal`
               }
             </p>
@@ -254,11 +260,11 @@ export const SelfCare: React.FC = () => {
               <div className="text-6xl font-mono font-bold text-wellness-calm">
                 {formatTime(timer.timeLeft)}
               </div>
-              
+
               <div className="space-y-2">
-                <Progress 
-                  value={((timer.totalTime - timer.timeLeft) / timer.totalTime) * 100} 
-                  className="h-2" 
+                <Progress
+                  value={((timer.totalTime - timer.timeLeft) / timer.totalTime) * 100}
+                  className="h-2"
                 />
                 <p className="text-sm text-muted-foreground">
                   {Math.round(((timer.totalTime - timer.timeLeft) / timer.totalTime) * 100)}% complete
@@ -351,13 +357,12 @@ export const SelfCare: React.FC = () => {
             const category = categories.find(c => c.id === activity.category);
             const Icon = category?.icon || Heart;
             const isActive = timer.currentActivity === activity.id;
-            
+
             return (
               <Card
                 key={activity.id}
-                className={`glass-card border-0 hover:shadow-xl transition-all duration-500 cursor-pointer tilt-card group ${
-                  isActive ? 'ring-2 ring-wellness-calm bg-wellness-calm/10' : ''
-                }`}
+                className={`glass-card border-0 hover:shadow-xl transition-all duration-500 cursor-pointer tilt-card group ${isActive ? 'ring-2 ring-wellness-calm bg-wellness-calm/10' : ''
+                  }`}
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <CardHeader>
@@ -366,8 +371,8 @@ export const SelfCare: React.FC = () => {
                       <Icon className="w-6 h-6 text-white" />
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <Badge 
-                        variant="secondary" 
+                      <Badge
+                        variant="secondary"
                         className={`text-xs ${getDifficultyColor(activity.difficulty)} text-white`}
                       >
                         {activity.difficulty}
@@ -393,7 +398,7 @@ export const SelfCare: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  <Button 
+                  <Button
                     className="w-full btn-glass group-hover:bg-white/30"
                     onClick={() => startActivity(activity)}
                     disabled={isActive}

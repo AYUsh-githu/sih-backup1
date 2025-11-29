@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Heart, 
-  BookOpen, 
-  Calendar, 
-  TrendingUp, 
+import {
+  Heart,
+  BookOpen,
+  Calendar,
+  TrendingUp,
   Star,
   Clock,
   Target,
@@ -17,14 +19,16 @@ import { ShimmerCard } from '@/components/LoadingSpinner';
 import { BreathingExercise } from '@/components/BreathingExercise';
 
 export const StudentDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [isBreathingOpen, setIsBreathingOpen] = useState(false);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
 
   useEffect(() => {
     // Simulate loading
     const timer = setTimeout(() => setIsLoading(false), 1500);
-    
+
     // Animate progress
     const progressTimer = setInterval(() => {
       setProgress(prev => prev < 75 ? prev + 1 : prev);
@@ -36,34 +40,72 @@ export const StudentDashboard: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const response = await fetch(`/api/student/recent-activity?user_id=${user.id}`, {
+          headers: {
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setRecentActivities(data.map((activity: any) => ({
+            title: activity.title,
+            time: new Date(activity.created_at).toLocaleDateString(),
+            icon: getActivityIcon(activity.activity_type)
+          })));
+        }
+      } catch (error) {
+        console.error('Failed to fetch activities:', error);
+      }
+    };
+
+    fetchActivities();
+  }, []);
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case 'assessment': return TrendingUp;
+      case 'booking': return Calendar;
+      case 'mindfulness': return Heart;
+      case 'resource': return BookOpen;
+      default: return Star;
+    }
+  };
+
   const quickActions = [
     {
       title: 'Browse Resources',
       description: 'Access mental health resources and guides',
       icon: BookOpen,
       color: 'from-blue-500 to-blue-600',
-      action: () => window.location.href = '/student-dashboard/resources-hub',
+      action: () => navigate('/student-dashboard/resources'),
     },
     {
       title: 'Self-Care Activities',
       description: 'Practice mindfulness and wellness exercises',
       icon: Heart,
       color: 'from-pink-500 to-rose-600',
-      action: () => window.location.href = '/self-care-hub',
+      action: () => navigate('/self-care-hub'),
     },
     {
       title: 'Book Session',
       description: 'Schedule a counseling appointment',
       icon: Calendar,
       color: 'from-green-500 to-emerald-600',
-      action: () => window.location.href = '/student-dashboard/booking',
+      action: () => navigate('/student-dashboard/booking'),
     },
-  ];
-
-  const recentActivities = [
-    { title: 'Completed mindfulness exercise', time: '2 hours ago', icon: Heart },
-    { title: 'Read "Managing Stress" article', time: '1 day ago', icon: BookOpen },
-    { title: 'Scheduled counseling session', time: '3 days ago', icon: Calendar },
+    {
+      title: 'Assessments',
+      description: 'Take mental health screenings (PHQ-9, GAD-7)',
+      icon: TrendingUp,
+      color: 'from-purple-500 to-indigo-600',
+      action: () => navigate('/student-dashboard/assessments'),
+    },
   ];
 
   if (isLoading) {
@@ -87,7 +129,7 @@ export const StudentDashboard: React.FC = () => {
 
   return (
     <DashboardLayout userType="student">
-        <div className="space-y-8 animate-fade-in">
+      <div className="space-y-8 animate-fade-in">
         {/* Welcome Header */}
         <div className="glass-card p-8 text-center tilt-card">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-wellness-calm to-wellness-serene bg-clip-text text-transparent mb-4 text-reveal-item">
@@ -96,7 +138,7 @@ export const StudentDashboard: React.FC = () => {
           <p className="text-xl text-muted-foreground mb-6">
             Your mental wellness journey continues here
           </p>
-          
+
           <div className="max-w-md mx-auto space-y-3">
             <div className="flex justify-between text-sm">
               <span>Wellness Progress</span>
@@ -191,20 +233,24 @@ export const StudentDashboard: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {recentActivities.map((activity, index) => (
-                <div 
-                  key={index} 
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/20 transition-colors duration-300"
-                >
-                  <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center">
-                    <activity.icon className="w-4 h-4 text-white" />
+              {recentActivities.length > 0 ? (
+                recentActivities.map((activity, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/20 transition-colors duration-300"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center">
+                      <activity.icon className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{activity.title}</p>
+                      <p className="text-xs text-muted-foreground">{activity.time}</p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{activity.title}</p>
-                    <p className="text-xs text-muted-foreground">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">No recent activity</p>
+              )}
             </CardContent>
           </Card>
 
@@ -219,12 +265,12 @@ export const StudentDashboard: React.FC = () => {
               <div className="p-6 rounded-xl bg-gradient-warm/20 border border-wellness-warm/20">
                 <h4 className="font-semibold mb-3 text-wellness-warm">Practice Deep Breathing</h4>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Take 5 minutes today to practice deep breathing exercises. 
-                  Inhale for 4 counts, hold for 4, and exhale for 6. This simple 
+                  Take 5 minutes today to practice deep breathing exercises.
+                  Inhale for 4 counts, hold for 4, and exhale for 6. This simple
                   technique can help reduce stress and improve focus.
                 </p>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   className="btn-glass"
                   onClick={() => setIsBreathingOpen(true)}
                 >
@@ -234,12 +280,12 @@ export const StudentDashboard: React.FC = () => {
             </CardContent>
           </Card>
         </div>
-        </div>
-        
-        <BreathingExercise 
-          isOpen={isBreathingOpen} 
-          onClose={() => setIsBreathingOpen(false)} 
-        />
-      </DashboardLayout>
+      </div>
+
+      <BreathingExercise
+        isOpen={isBreathingOpen}
+        onClose={() => setIsBreathingOpen(false)}
+      />
+    </DashboardLayout>
   );
 };

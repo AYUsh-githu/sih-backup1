@@ -17,17 +17,20 @@ import {
   ExternalLink,
   Heart,
   Brain,
-  Shield
+  Shield,
+  Flower2,
+  Sparkles
 } from 'lucide-react';
 import { ShimmerCard } from '@/components/LoadingSpinner';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Resource {
   id: string;
   title: string;
   description: string;
   type: 'article' | 'video' | 'audio' | 'pdf';
-  category: 'anxiety' | 'depression' | 'stress' | 'wellness' | 'general';
+  category: 'anxiety' | 'depression' | 'stress' | 'wellness' | 'general' | 'meditation' | 'yoga';
   duration?: string;
   rating: number;
   featured: boolean;
@@ -39,79 +42,47 @@ export const Resources: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [resources, setResources] = useState<Resource[]>([]);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1200);
-    return () => clearTimeout(timer);
-  }, []);
+    const fetchResources = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('resources')
+          .select('*');
 
-  const resources: Resource[] = [
-    {
-      id: '1',
-      title: 'Understanding Anxiety: A Complete Guide',
-      description: 'Learn about anxiety disorders, symptoms, and effective coping strategies.',
-      type: 'article',
-      category: 'anxiety',
-      duration: '8 min read',
-      rating: 4.8,
-      featured: true,
-    },
-    {
-      id: '2',
-      title: 'Mindfulness Meditation for Beginners',
-      description: 'A guided meditation video to help you start your mindfulness journey.',
-      type: 'video',
-      category: 'wellness',
-      duration: '12 min',
-      rating: 4.9,
-      featured: true,
-    },
-    {
-      id: '3',
-      title: 'Stress Management Techniques',
-      description: 'Practical audio guide on managing stress in daily life.',
-      type: 'audio',
-      category: 'stress',
-      duration: '15 min',
-      rating: 4.7,
-      featured: false,
-    },
-    {
-      id: '4',
-      title: 'Depression Support Workbook',
-      description: 'Downloadable PDF with exercises and worksheets for depression support.',
-      type: 'pdf',
-      category: 'depression',
-      duration: '24 pages',
-      rating: 4.6,
-      featured: true,
-    },
-    {
-      id: '5',
-      title: 'Building Resilience in Daily Life',
-      description: 'Learn how to develop mental resilience and bounce back from challenges.',
-      type: 'article',
-      category: 'wellness',
-      duration: '6 min read',
-      rating: 4.8,
-      featured: false,
-    },
-    {
-      id: '6',
-      title: 'Sleep and Mental Health',
-      description: 'Understanding the connection between sleep quality and mental wellness.',
-      type: 'video',
-      category: 'general',
-      duration: '18 min',
-      rating: 4.5,
-      featured: false,
-    }
-  ];
+        if (error) throw error;
+
+        if (data) {
+          const mappedResources: Resource[] = data.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            type: item.type || 'article',
+            category: item.category || 'general',
+            duration: item.duration || '5 min read',
+            rating: item.rating || 4.5,
+            featured: item.featured || false,
+            url: item.url
+          }));
+          setResources(mappedResources);
+        }
+      } catch (error) {
+        console.error('Error fetching resources:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchResources();
+  }, []);
 
   const categories = [
     { id: 'all', label: 'All Resources', icon: BookOpen },
     { id: 'anxiety', label: 'Anxiety', icon: Brain },
     { id: 'depression', label: 'Depression', icon: Heart },
+    { id: 'meditation', label: 'Meditation', icon: Sparkles },
+    { id: 'yoga', label: 'Yoga', icon: Flower2 },
     { id: 'stress', label: 'Stress', icon: Shield },
     { id: 'wellness', label: 'Wellness', icon: Star },
     { id: 'general', label: 'General', icon: FileText }
@@ -139,24 +110,20 @@ export const Resources: React.FC = () => {
     const matchesSearch = resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       resource.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || resource.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+
+    // Hide individual videos from the main list, keep only the collection container
+    const isHiddenVideo = resource.type === 'video' && resource.title !== 'Mindfulness Meditation for Beginners';
+
+    return matchesSearch && matchesCategory && !isHiddenVideo;
   });
 
-  const featuredResources = resources.filter(resource => resource.featured);
+  const featuredResources = resources.filter(resource => resource.featured && (resource.type !== 'video' || resource.title === 'Mindfulness Meditation for Beginners'));
 
-  const handleResourceClick = (resourceId: string) => {
-    if (resourceId === '1') {
-      navigate('/anxiety-guide');
-    } else if (resourceId === '2') {
-      navigate('/mindfulness-meditation');
-    } else if (resourceId === '3') {
-      navigate('/stress-management');
-    } else if (resourceId === '4') {
-      navigate('/depression-workbook');
-    } else if (resourceId === '5') {
+  const handleResourceClick = (resource: Resource) => {
+    if (resource.title.includes('Building Resilience') || resource.title.includes('Resilience')) {
       navigate('/resilience-article');
-    } else if (resourceId === '6') {
-      navigate('/sleep-health');
+    } else {
+      navigate(`/student-dashboard/resources/${resource.id}`);
     }
   };
 
@@ -240,7 +207,7 @@ export const Resources: React.FC = () => {
                       </div>
                       <Button
                         className="w-full btn-glass group-hover:bg-white/30"
-                        onClick={() => handleResourceClick(resource.id)}
+                        onClick={() => handleResourceClick(resource)}
                       >
                         <ExternalLink className="w-4 h-4 mr-2" />
                         Access Resource
@@ -255,14 +222,14 @@ export const Resources: React.FC = () => {
 
         {/* Categories and All Resources */}
         <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="space-y-6">
-          <TabsList className="grid grid-cols-6 w-full glass-card">
+          <TabsList className="grid grid-cols-4 md:grid-cols-8 w-full glass-card overflow-x-auto">
             {categories.map((category) => {
               const Icon = category.icon;
               return (
                 <TabsTrigger
                   key={category.id}
                   value={category.id}
-                  className="flex items-center gap-2 data-[state=active]:bg-white/30"
+                  className="flex items-center gap-2 data-[state=active]:bg-white/30 min-w-[100px]"
                 >
                   <Icon className="w-4 h-4" />
                   <span className="hidden sm:inline">{category.label}</span>
@@ -292,7 +259,7 @@ export const Resources: React.FC = () => {
                           </Badge>
                         </div>
                         <CardTitle className="text-base">{resource.title}</CardTitle>
-                        <CardDescription className="text-sm">{resource.description}</CardDescription>
+                        <CardDescription className="text-sm line-clamp-2">{resource.description}</CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="flex items-center justify-between mb-3">
@@ -308,7 +275,7 @@ export const Resources: React.FC = () => {
                         <Button
                           size="sm"
                           className="w-full btn-glass"
-                          onClick={() => handleResourceClick(resource.id)}
+                          onClick={() => handleResourceClick(resource)}
                         >
                           View
                         </Button>

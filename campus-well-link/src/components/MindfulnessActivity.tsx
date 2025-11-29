@@ -21,12 +21,13 @@ import {
 
 interface MindfulnessActivityProps {
   onBack: () => void;
+  onComplete?: (activityName: string, durationMinutes: number) => void;
 }
 
 type TimerState = 'idle' | 'running' | 'paused' | 'completed';
 type AmbientSound = 'rain' | 'waves' | 'forest' | 'none';
 
-export const MindfulnessActivity: React.FC<MindfulnessActivityProps> = ({ onBack }) => {
+export const MindfulnessActivity: React.FC<MindfulnessActivityProps> = ({ onBack, onComplete }) => {
   const totalDuration = 20 * 60; // 20 minutes in seconds
   const [timeLeft, setTimeLeft] = useState(totalDuration);
   const [timerState, setTimerState] = useState<TimerState>('idle');
@@ -40,12 +41,13 @@ export const MindfulnessActivity: React.FC<MindfulnessActivityProps> = ({ onBack
   // Timer logic
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
+
     if (timerState === 'running' && timeLeft > 0) {
       interval = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
             setTimerState('completed');
+            if (onComplete) onComplete('Walking Meditation', 20);
             return 0;
           }
           return prev - 1;
@@ -94,7 +96,7 @@ export const MindfulnessActivity: React.FC<MindfulnessActivityProps> = ({ onBack
       <div className="min-h-screen relative overflow-hidden">
         {/* Animated gradient background */}
         <div className="absolute inset-0 bg-gradient-to-br from-sky-400 via-cyan-300 to-emerald-300 dark:from-sky-900 dark:via-cyan-900 dark:to-emerald-900 opacity-40" />
-        
+
         {/* Floating particles */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {[...Array(12)].map((_, i) => (
@@ -210,7 +212,7 @@ export const MindfulnessActivity: React.FC<MindfulnessActivityProps> = ({ onBack
                       </linearGradient>
                     </defs>
                   </svg>
-                  
+
                   {/* Timer display */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <motion.div
@@ -226,9 +228,9 @@ export const MindfulnessActivity: React.FC<MindfulnessActivityProps> = ({ onBack
                       {formatTime(timeLeft)}
                     </motion.div>
                     <p className="text-sm text-muted-foreground mt-2">
-                      {timerState === 'completed' ? 'Complete!' : 
-                       timerState === 'running' ? 'In Progress' :
-                       timerState === 'paused' ? 'Paused' : 'Ready to begin'}
+                      {timerState === 'completed' ? 'Complete!' :
+                        timerState === 'running' ? 'In Progress' :
+                          timerState === 'paused' ? 'Paused' : 'Ready to begin'}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {Math.round(progress)}% complete
@@ -328,11 +330,10 @@ export const MindfulnessActivity: React.FC<MindfulnessActivityProps> = ({ onBack
                           key={sound.id}
                           onClick={() => setAmbientSound(sound.id as AmbientSound)}
                           variant={ambientSound === sound.id ? 'default' : 'outline'}
-                          className={`glass-card ${
-                            ambientSound === sound.id
-                              ? 'bg-gradient-to-r from-cyan-500/30 to-emerald-500/30 border-cyan-400'
-                              : 'hover:bg-white/10'
-                          }`}
+                          className={`glass-card ${ambientSound === sound.id
+                            ? 'bg-gradient-to-r from-cyan-500/30 to-emerald-500/30 border-cyan-400'
+                            : 'hover:bg-white/10'
+                            }`}
                         >
                           <Icon className="w-4 h-4 mr-2" />
                           {sound.label}
